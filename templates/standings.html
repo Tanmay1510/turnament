@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Standings - Tournament Manager{% endblock %}
+{% block body %}
+{% include "navbar.html" %}
+
+<style>
+/* Row hover glow */
+.standing-row {
+  position: relative; overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.23,1,0.32,1);
+}
+.standing-row::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(244,114,182,0.03), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+.standing-row:hover::before { transform: translateX(100%); }
+.standing-row:hover { background: rgba(255,255,255,0.04); transform: translateX(4px); }
+
+/* Rank badge */
+.rank-badge {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 14px;
+}
+.rank-1 { background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(245,158,11,0.1)); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+.rank-2 { background: linear-gradient(135deg, rgba(148,163,184,0.2), rgba(100,116,139,0.1)); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.3); }
+.rank-3 { background: linear-gradient(135deg, rgba(251,146,60,0.2), rgba(234,88,12,0.1)); color: #fb923c; border: 1px solid rgba(251,146,60,0.3); }
+.rank-n { background: rgba(255,255,255,0.03); color: #64748b; border: 1px solid rgba(255,255,255,0.05); }
+
+/* Points highlight */
+.pts-glow {
+  position: relative;
+  display: inline-block;
+}
+.pts-glow::after {
+  content: ""; position: absolute; inset: -4px -8px;
+  border-radius: 8px;
+  background: rgba(244,114,182,0.08);
+  opacity: 0; transition: opacity 0.3s;
+}
+.standing-row:hover .pts-glow::after { opacity: 1; }
+</style>
+
+<div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+  <div class="parallax-orb absolute w-96 h-96 -top-48 left-1/4 bg-emerald-500/5 rounded-full blur-3xl anim-float"></div>
+  <div class="parallax-orb absolute w-64 h-64 bottom-32 right-1/4 bg-pink-500/5 rounded-full blur-3xl anim-float" style="animation-delay:2s"></div>
+</div>
+
+<main class="relative z-10 pt-20 pb-12 px-4 max-w-7xl mx-auto">
+
+  <div class="animate-in" style="--delay:0">
+    <h1 class="text-3xl font-display font-bold flex items-center gap-3">
+      <span class="gradient-text-alt">STANDINGS</span>
+    </h1>
+  </div>
+
+  <!-- Tournament Selector -->
+  <div class="mt-6 space-y-3">
+    <div class="flex flex-wrap gap-2 animate-in" style="--delay:1">
+      {% for t in tournaments %}
+      <a href="/standings?tournament_id={{ t.id }}"
+         class="px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 interactive-card
+         {{ 'bg-gradient-to-r from-emerald-500/15 to-pink-500/15 text-white neon-border' if selected_tournament and selected_tournament.id == t.id else 'glass glass-hover text-slate-400 hover:text-white' }}">
+        {{ t.name }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if standings %}
+  {% set sport = selected_tournament.sport if selected_tournament else '' %}
+
+  {% if sport == 'business' %}
+  <div class="mt-8 space-y-4">
+    <div class="text-center mb-6 animate-in" style="--delay:2">
+      <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-400 text-sm font-display tracking-wider">
+        💼 BUSINESS LEADERBOARD — Ranked by Net Worth
+      </span>
+    </div>
+
+    {% for team in standings %}
+    <div class="p-4 rounded-xl glass neon-border card-shine interactive-card standing-row animate-in from-left" style="--delay:{{ 3 + loop.index0 }}">
+      <div class="flex items-center gap-4">
+
+        <div class="rank-badge {{ 'rank-1' if loop.index0 == 0 else ('rank-2' if loop.index0 == 1 else ('rank-3' if loop.index0 == 2 else 'rank-n')) }}">
+          {% if loop.index0 == 0 %}🥇{% elif loop.index0 == 1 %}🥈{% elif loop.index0 == 2 %}🥉{% else %}{{ loop.index }}{% endif %}
+        </div>
+
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold border"
+             style="background:{{ team.color }}20;border-color:{{ team.color }}">
+          {{ team.short_name }}
+        </div>
+
+        <div class="flex-1">
+          <div class="text-white font-semibold">{{ team.name }}</div>
+          {% if team.bankrupt %}
+          <span class="text-xs px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/30">BANKRUPT</span>
+          {% endif %}
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-sm">
+          <div class="text-center p-2 rounded-lg bg-white/5 border border-white/5">
+            <div class="text-lg font-display font-bold text-emerald-400">{{ team.net_worth }}</div>
+            <div class="text-[10px] text-slate-500 uppercase">Net Worth</div>
+          </div>
+          <div class="text-center p-2 rounded-lg bg-white/5 border border-white/5">
+            <div class="text-lg font-display font-bold text-pink-400">{{ team.revenue }}</div>
+            <div class="text-[10px] text-slate-500 uppercase">Revenue</div>
+          </div>
+          <div class="text-center p-2 rounded-lg bg-white/5 border border-white/5">
+            <div class="text-lg font-display font-bold text-orange-400">{{ team.assets }}</div>
+            <div class="text-[10px] text-slate-500 uppercase">Assets</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% elif sport == 'ludo' %}
+  <div class="mt-8 space-y-4">
+    <div class="text-center mb-6 animate-in" style="--delay:2">
+      <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-500/10 border border-pink-500/20 text-pink-400 text-sm font-display tracking-wider">
+        🎲 LUDO LEADERBOARD — Ranked by Tokens Home
+      </span>
+    </div>
+
+    {% for team in standings %}
+    <div class="p-4 rounded-xl glass neon-border card-shine interactive-card standing-row animate-in from-left" style="--delay:{{ 3 + loop.index0 }}">
+      <div class="flex items-center gap-4">
+
+        <div class="rank-badge {{ 'rank-1' if loop.index0 == 0 else ('rank-2' if loop.index0 == 1 else ('rank-3' if loop.index0 == 2 else 'rank-n')) }}">
+          {% if loop.index0 == 0 %}🥇{% elif loop.index0 == 1 %}🥈{% elif loop.index0 == 2 %}🥉{% else %}{{ loop.index }}{% endif %}
+        </div>
+
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold border"
+             style="background:{{ team.color }}20;border-color:{{ team.color }}">
+          {{ team.short_name }}
+        </div>
+
+        <div class="flex-1">
+          <div class="text-white font-semibold">{{ team.name }}</div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-2 text-sm">
+          <div class="text-center p-2 rounded-lg bg-white/5 border border-white/5">
+            <div class="text-lg font-display font-bold text-emerald-400">{{ team.home }}</div>
+            <div class="text-[10px] text-slate-500 uppercase">Home</div>
+          </div>
+          <div class="text-center p-2 rounded-lg bg-white/5 border border-white/5">
+            <div class="text-lg font-display font-bold text-red-400">{{ team.kills }}</div>
+            <div class="text-[10px] text-slate-500 uppercase">Kills</div>
+          </div>
+          <div class="text-center p-2 rounded-lg bg-white/5 border border-white/5">
+            <div class="text-lg font-display font-bold text-blue-400">{{ team.safe }}</div>
+            <div class="text-[10px] text-slate-500 uppercase">Safe</div>
+          </div>
+          <div class="text-center p-2 rounded-lg bg-white/5 border border-white/5">
+            <div class="text-lg font-display font-bold text-orange-400">{{ team.sixes }}</div>
+            <div class="text-[10px] text-slate-500 uppercase">Sixes</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- Standard standings -->
+  <div class="mt-8 overflow-hidden rounded-2xl glass neon-border card-shine animate-in" style="--delay:2">
+
+    <div class="grid grid-cols-[auto_1fr_repeat(5,60px)] gap-4 px-6 py-3 bg-white/5 border-b border-white/10 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+      <span class="text-center">#</span>
+      <span>Team</span>
+      <span class="text-center">P</span>
+      <span class="text-center">W</span>
+      <span class="text-center">D</span>
+      <span class="text-center">L</span>
+      <span class="text-center">PTS</span>
+    </div>
+
+    {% for team in standings %}
+    <div class="grid grid-cols-[auto_1fr_repeat(5,60px)] gap-4 px-6 py-4 items-center border-b border-white/5 standing-row group animate-in from-left
+      {{ 'bg-emerald-500/10' if loop.index0 < 2 else '' }}"
+      style="--delay:{{ 3 + loop.index0 }}">
+
+      <div class="rank-badge {{ 'rank-1' if loop.index0 == 0 else ('rank-2' if loop.index0 == 1 else ('rank-3' if loop.index0 == 2 else 'rank-n')) }}">
+        {% if loop.index0 == 0 %}🥇{% elif loop.index0 == 1 %}🥈{% elif loop.index0 == 2 %}🥉{% else %}{{ loop.index }}{% endif %}
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold border group-hover:scale-110 transition-transform duration-300"
+             style="background:{{ team.color }}20;border-color:{{ team.color }}">
+          {{ team.short_name }}
+        </div>
+        <span class="text-white font-medium">{{ team.name }}</span>
+      </div>
+
+      <span class="text-center text-slate-300">{{ team.played }}</span>
+      <span class="text-center text-emerald-400 font-medium">{{ team.wins }}</span>
+      <span class="text-center text-slate-400">{{ team.draws }}</span>
+      <span class="text-center text-red-400">{{ team.losses }}</span>
+      <span class="text-center font-display font-bold text-white text-lg pts-glow">{{ team.points }}</span>
+
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="text-center py-20 glass rounded-2xl mt-8 animate-in scale" style="--delay:2">
+    <div class="text-5xl mb-4 anim-float">📊</div>
+    <p class="text-slate-400 text-lg">No standings data yet</p>
+    <p class="text-slate-500 text-sm mt-2">Create a tournament and play matches</p>
+  </div>
+  {% endif %}
+
+</main>
+
+{% endblock %}

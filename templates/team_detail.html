@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ team.name }} - Tournament Manager{% endblock %}
+{% block body %}
+{% include "navbar.html" %}
+
+<div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+  <div class="parallax-orb absolute w-96 h-96 top-1/4 -right-48 rounded-full blur-3xl anim-float" style="background:{{ team.color }}20"></div>
+  <div class="parallax-orb absolute w-64 h-64 bottom-1/4 -left-32 rounded-full blur-3xl anim-float" style="background:{{ team.color }}30;animation-delay:3s"></div>
+</div>
+
+<main class="relative z-10 pt-20 pb-12 px-4 max-w-7xl mx-auto">
+
+  <!-- Back -->
+  <div class="animate-in from-left" style="--delay:0">
+    <a href="/teams" class="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm mb-6 group">
+      <span class="transition-transform group-hover:-translate-x-1">←</span>
+      Back to Teams
+    </a>
+  </div>
+
+  <!-- Team Header -->
+  <div class="relative p-8 rounded-3xl card-gradient glass overflow-hidden animate-in scale border-glow interactive-card" style="--delay:1;border:1px solid {{ team.color }}30">
+
+    <div class="absolute top-0 left-0 right-0 h-1.5" style="background:{{ team.color }}"></div>
+    <div class="absolute top-0 right-0 w-64 h-64 rounded-bl-full opacity-5 anim-morph" style="background:{{ team.color }}"></div>
+    <div class="absolute bottom-0 left-0 w-32 h-32 rounded-tr-full opacity-3 anim-float" style="background:{{ team.color }}"></div>
+
+    <div class="relative flex items-center gap-6">
+
+      <div class="w-24 h-24 md:w-28 md:h-28 rounded-3xl flex items-center justify-center text-3xl md:text-4xl font-display font-bold border-2"
+           style="background:{{ team.color }}15;border-color:{{ team.color }};color:{{ team.color }}">
+        {{ team.short_name }}
+      </div>
+
+      <div>
+        <h1 class="text-2xl md:text-3xl font-display font-bold text-white">{{ team.name }}</h1>
+
+        <div class="flex items-center gap-3 mt-2">
+          <span class="text-slate-400 font-display text-sm">
+            <span class="count-up">{{ players|length }}</span> Players
+          </span>
+          <span class="w-1 h-1 rounded-full bg-slate-600"></span>
+          <span class="text-xs px-2 py-0.5 rounded-full border"
+                style="color:{{ team.color }};border-color:{{ team.color }}40;background:{{ team.color }}10">
+            {{ team.short_name }}
+          </span>
+        </div>
+
+        <div class="mt-3 h-0.5 w-24 rounded-full" style="background:{{ team.color }}"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Players -->
+  <div class="mt-8">
+    <h2 class="text-xl font-display font-bold text-white mb-4 flex items-center gap-2 animate-in" style="--delay:2">
+      Squad
+    </h2>
+
+    {% if players %}
+    <div class="space-y-2">
+      {% for player in players %}
+      <div class="flex items-center gap-4 p-4 rounded-xl glass glass-hover interactive-card group transition-all duration-300 animate-in from-left" style="--delay:{{ 3 + loop.index0 }}">
+
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center font-display font-bold text-sm border group-hover:scale-110 group-hover:rotate-3 transition-all duration-300"
+             style="background:{{ team.color }}15;border-color:{{ team.color }}40;color:{{ team.color }}">
+          {{ player.number or '-' }}
+        </div>
+
+        <div class="flex-1">
+          <p class="text-white font-medium group-hover:gradient-text transition-all">{{ player.name }}</p>
+          <p class="text-slate-500 text-xs uppercase tracking-wider font-display">{{ player.role }}</p>
+        </div>
+
+        <span class="text-slate-500 font-display text-sm opacity-40 group-hover:opacity-100 transition-opacity duration-300">
+          #{{ player.number or '-' }}
+        </span>
+
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12 glass rounded-2xl animate-in scale" style="--delay:3">
+      <div class="text-3xl mb-3 anim-float">👥</div>
+      <p class="text-slate-400">No players added yet</p>
+    </div>
+    {% endif %}
+
+  </div>
+
+</main>
+
+{% endblock %}

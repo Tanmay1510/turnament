@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Teams - Tournament Manager{% endblock %}
+{% block body %}
+{% include "navbar.html" %}
+
+<div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+  <div class="parallax-orb absolute w-96 h-96 top-1/4 -right-48 bg-orange-500/5 rounded-full blur-3xl anim-float"></div>
+  <div class="parallax-orb absolute w-64 h-64 bottom-1/4 -left-32 bg-fuchsia-500/5 rounded-full blur-3xl anim-float" style="animation-delay:3s"></div>
+</div>
+
+<main class="relative z-10 pt-20 pb-12 px-4 max-w-7xl mx-auto">
+
+  <div class="animate-in" style="--delay:0">
+    <h1 class="text-3xl font-display font-bold flex items-center gap-3">
+      <span class="bg-gradient-to-r from-orange-400 via-yellow-400 to-emerald-400 bg-clip-text text-transparent">TEAMS</span>
+    </h1>
+
+    {% if teams %}
+    <p class="text-slate-500 text-sm mt-2">
+      <span class="count-up">{{ teams|length }}</span> teams registered
+    </p>
+    {% endif %}
+  </div>
+
+  {% if teams %}
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-8">
+
+    {% for team in teams %}
+    <div class="animate-in" style="--delay:{{ 1 + loop.index0 }}">
+      <a href="/teams/{{ team.id }}" class="block">
+
+        <div class="relative p-6 rounded-2xl card-gradient glass glass-hover overflow-hidden group transition-all duration-500 border-2 interactive-card card-shine"
+             style="border:2px solid {{ team.color }}30">
+
+          <!-- Color accent top bar -->
+          <div class="absolute top-0 left-0 right-0 h-1 rounded-t-2xl transition-all duration-500 opacity-0 group-hover:opacity-100"
+               style="background:{{ team.color }}"></div>
+
+          <!-- Glow blob -->
+          <div class="absolute top-0 right-0 w-40 h-40 rounded-bl-full opacity-0 group-hover:opacity-10 transition-opacity duration-500"
+               style="background:{{ team.color }}"></div>
+
+          <!-- Scanning effect -->
+          <div class="absolute inset-0 overflow-hidden pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+            <div class="absolute left-0 right-0 h-px"
+                 style="background:linear-gradient(90deg,transparent,{{ team.color }}30,transparent);animation:scanline 3s linear infinite;top:-10%"></div>
+          </div>
+
+          <div class="relative">
+
+            <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-display font-bold mb-4 border-2 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500"
+                 style="background:{{ team.color }}15;border-color:{{ team.color }};color:{{ team.color }}">
+              {{ team.short_name }}
+            </div>
+
+            <h3 class="text-lg font-bold text-white mb-1 group-hover:gradient-text transition-all duration-300">
+              {{ team.name }}
+            </h3>
+
+            <p class="text-slate-500 text-sm font-display">
+              {{ team.short_name }}
+            </p>
+
+            <div class="mt-4 flex items-center gap-2 text-sm font-medium opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300"
+                 style="color:{{ team.color }}">
+              <span>View players</span>
+              <span class="transition-transform group-hover:translate-x-1">→</span>
+            </div>
+
+            <div class="mt-3 h-0.5 w-0 group-hover:w-full transition-all duration-700 rounded-full"
+                 style="background:{{ team.color }}"></div>
+
+          </div>
+
+        </div>
+
+      </a>
+    </div>
+    {% endfor %}
+
+  </div>
+
+  {% else %}
+  <div class="text-center py-20 glass rounded-2xl mt-8 animate-in scale" style="--delay:1">
+    <div class="text-5xl mb-4 anim-float">👥</div>
+    <p class="text-slate-400 text-lg">No teams yet</p>
+    <p class="text-slate-500 text-sm mt-2">
+      Create teams from the <a href="/admin" class="text-pink-400 hover:underline">admin panel</a>
+    </p>
+  </div>
+  {% endif %}
+
+</main>
+
+{% endblock %}

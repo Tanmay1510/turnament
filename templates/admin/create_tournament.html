@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+{% block title %}Create Tournament - Admin{% endblock %}
+{% block body %}
+{% set active_admin = 'create' %}
+{% include 'admin_sidebar.html' %}
+
+<style>
+.sport-card{cursor:pointer;transition:all .4s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden}
+.sport-card:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,var(--glow) 0%,transparent 60%);opacity:0;transition:opacity .4s}
+.sport-card:hover:before,.sport-card.selected:before{opacity:1}
+.sport-card:hover{transform:translateY(-8px) scale(1.03);border-color:var(--border-glow)!important}
+.sport-card.selected{transform:translateY(-4px) scale(1.02);border-color:var(--border-glow)!important;box-shadow:0 30px var(--glow),inset 0 0 20px var(--glow)}
+.sport-card .icon{font-size:2.5rem;transition:transform .4s cubic-bezier(.16,1,.3,1)}
+.sport-card:hover .icon{transform:scale(1.2) rotate(-5deg)}
+.sport-card.selected .icon{transform:scale(1.15);animation:sportBounce .5s ease}
+.sport-card .check{position:absolute;top:8px;right:8px;height:24px;width:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(0);transition:all .3s cubic-bezier(.16,1,.3,1)}
+.sport-card.selected .check{opacity:1;transform:scale(1)}
+.sport-card .features{max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.16,1,.3,1)}
+.sport-card:hover .features,.sport-card.selected .features{max-height:200px}
+@keyframes sportBounce{0%,100%{transform:scale(1.15)}50%{transform:scale(1.35)}}
+@keyframes cardPulse{0%,100%{box-shadow:0 15px var(--glow)}50%{box-shadow:0 35px var(--glow)}}
+.sport-card.selected{animation:cardPulse 2s ease infinite}
+
+/* Feature Showcase Panel */
+.feature-showcase{max-height:0;overflow:hidden;opacity:0;transition:max-height .8s cubic-bezier(.23,1,.32,1),opacity .5s ease}
+.feature-showcase.show{max-height:600px;opacity:1}
+.feature-showcase .feat-item{opacity:0;transform:translateX(-15px);transition:all .4s cubic-bezier(.23,1,.32,1)}
+.feature-showcase.show .feat-item{opacity:1;transform:translateX(0)}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.feat-chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);font-size:11px;color:rgb(203,213,225);transition:all .3s}
+.feat-chip:hover{background:rgba(244,114,182,.08);border-color:rgba(244,114,182,.2);color:white;transform:translateY(-2px)}
+.feat-chip .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;animation:pulseDot 2s ease-in-out infinite}
+</style>
+
+<main class="admin-main">
+<div class="px-6 py-8 max-w-6xl mx-auto">
+<h1 class="text-3xl font-display font-bold gradient-text animate-in anim-text-glow" style="--delay:0">CREATE TOURNAMENT</h1>
+
+{% if success %}
+<div class="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm animate-in from-left" style="--delay:0">
+{{ success }}
+</div>
+{% endif %}
+
+{% if error %}
+<div class="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm animate-in from-left" style="--delay:0">
+{{ error }}
+</div>
+{% endif %}
+
+<form method="POST" action="/admin/tournament/create" id="createForm">
+<input type="hidden" name="sport" id="sportInput" required value="">
+
+<!-- Tournament Name -->
+<div class="mt-8 animate-in" style="--delay:1">
+<label class="text-sm font-medium text-slate-300 mb-2 block">Tournament Name</label>
+<input type="text" name="name" required class="input-field" placeholder="e.g. Premier League 2025">
+</div>
+
+<!-- Sport Selection -->
+<div class="mt-8 animate-in" style="--delay:2">
+<label class="text-sm font-medium text-slate-300 mb-3 block">Choose a Sport / Game</label>
+<div id="selectedSportBadge" class="mb-4 hidden">
+<div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-500/15 border border-pink-500/30 text-pink-400 text-sm font-medium">
+<span id="badgeIcon"></span>
+<span id="badgeName"></span>
+<button type="button" onclick="clearSport()" class="ml-1 hover:text-white transition-colors">✕</button>
+</div>
+</div>
+
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+
+<!-- Cricket -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="cricket"
+style="--glow:rgba(34,197,94,.15);--border-glow:#22c55e" onclick="selectSport(this,'cricket')">
+<div class="check bg-emerald-500 text-white text-xs">✓</div>
+<div class="icon">🏏</div>
+<h3 class="text-white font-bold text-sm mt-2">Cricket</h3>
+<div class="features mt-2 space-y-1">
+<span class="text-[10px] text-slate-400 block">Overs • Wickets • Run Rate</span>
+<span class="text-[10px] text-slate-400 block">Extras • Boundaries • Sixes</span>
+</div>
+</div>
+
+<!-- Football -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="football"
+style="--glow:rgba(59,130,246,.15);--border-glow:#3b82f6" onclick="selectSport(this,'football')">
+<div class="check bg-blue-500 text-white text-xs">✓</div>
+<div class="icon">⚽</div>
+<h3 class="text-white font-bold text-sm mt-2">Football</h3>
+<div class="features mt-2 space-y-1">
+<span class="text-[10px] text-slate-400 block">Goals • Yellow Cards • Red Cards</span>
+<span class="text-[10px] text-slate-400 block">Half-time Score • Corners</span>
+</div>
+</div>
+
+<!-- Basketball -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="basketball"
+style="--glow:rgba(249,115,22,.15);--border-glow:#f97316" onclick="selectSport(this,'basketball')">
+<div class="check bg-orange-500 text-white text-xs">✓</div>
+<div class="icon">🏀</div>
+<h3 class="text-white font-bold text-sm mt-2">Basketball</h3>
+<div class="features mt-2 space-y-1">
+<span class="text-[10px] text-slate-400 block">Q1 • Q2 • Q3 • Q4 Scores</span>
+<span class="text-[10px] text-slate-400 block">Fouls • 3-Pointers • Rebounds</span>
+</div>
+</div>
+
+<!-- Tennis -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="tennis"
+style="--glow:rgba(234,179,8,.15);--border-glow:#eab308" onclick="selectSport(this,'tennis')">
+<div class="check bg-yellow-500 text-white text-xs">✓</div>
+<div class="icon">🎾</div>
+<h3 class="text-white font-bold text-sm mt-2">Tennis</h3>
+<div class="features mt-2 space-y-1">
+<span class="text-[10px] text-slate-400 block">Set Scores (5 sets)</span>
+<span class="text-[10px] text-slate-400 block">Aces • Double Faults</span>
+</div>
+</div>
+
+<!-- Badminton -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="badminton"
+style="--glow:rgba(168,85,247,.15);--border-glow:#a855f7" onclick="selectSport(this,'badminton')">
+<div class="check bg-purple-500 text-white text-xs">✓</div>
+<div class="icon">🏸</div>
+<h3 class="text-white font-bold text-sm mt-2">Badminton</h3>
+<div class="features mt-2 space-y-1">
+<span class="text-[10px] text-slate-400 block">Set 1 • Set 2 • Set 3</span>
+<span class="text-[10px] text-slate-400 block">Smashes • Net Points</span>
+</div>
+</div>
+
+<!-- Table Tennis -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="table_tennis"
+style="--glow:rgba(20,184,166,.15);--border-glow:#14b8a6" onclick="selectSport(this,'table_tennis')">
+<div class="check bg-teal-500 text-white text-xs">✓</div>
+<div class="icon">🏓</div>
+<h3 class="text-white font-bold text-sm mt-2">Table Tennis</h3>
+<div class="features mt-2 space-y-1">
+<span class="text-[10px] text-slate-400 block">Sets (Best of 5/7)</span>
+<span class="text-[10px] text-slate-400 block">Points per Set</span>
+</div>
+</div>
+
+
+
+
+<!-- Volleyball -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="volleyball"
+    style="--glow:rgba(239,68,68,.15);--border-glow:#ef4444" onclick="selectSport(this,'volleyball')">
+    <div class="check bg-red-500 text-white text-xs">✓</div>
+    <div class="icon">🏐</div>
+    <h3 class="text-white font-bold text-sm mt-2">Volleyball</h3>
+    <div class="features mt-2 space-y-1">
+        <span class="text-[10px] text-slate-400 block">Set 1 • Set 2 • Set 3 • Set 4 • Set 5</span>
+        <span class="text-[10px] text-slate-400 block">Spikes • Blocks • Aces</span>
+    </div>
+</div>
+
+<!-- Chess -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="chess"
+    style="--glow:rgba(148,163,184,.15);--border-glow:#94a3b8" onclick="selectSport(this,'chess')">
+    <div class="check bg-slate-500 text-white text-xs">✓</div>
+    <div class="icon">♟</div>
+    <h3 class="text-white font-bold text-sm mt-2">Chess</h3>
+    <div class="features mt-2 space-y-1">
+        <span class="text-[10px] text-slate-400 block">Result • Total Moves</span>
+        <span class="text-[10px] text-slate-400 block">Time Used • Opening</span>
+    </div>
+</div>
+
+<!-- Carrom -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="carrom"
+    style="--glow:rgba(217,119,6,.15);--border-glow:#d97706" onclick="selectSport(this,'carrom')">
+    <div class="check bg-amber-600 text-white text-xs">✓</div>
+    <div class="icon">⚪</div>
+    <h3 class="text-white font-bold text-sm mt-2">Carrom</h3>
+    <div class="features mt-2 space-y-1">
+        <span class="text-[10px] text-slate-400 block">Black Coins • White Coins</span>
+        <span class="text-[10px] text-slate-400 block">Queen Pocketed • Fouls</span>
+    </div>
+</div>
+
+<!-- Ludo -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="ludo"
+    style="--glow:rgba(244,114,182,.15);--border-glow:#f472b6" onclick="selectSport(this,'ludo')">
+    <div class="check bg-pink-500 text-white text-xs">✓</div>
+    <div class="icon">🎲</div>
+    <h3 class="text-white font-bold text-sm mt-2">Ludo</h3>
+    <div class="features mt-2 space-y-1">
+        <span class="text-[10px] text-slate-400 block">Tokens Home • Kills</span>
+        <span class="text-[10px] text-slate-400 block">Dice Rolls • Sixes Count</span>
+    </div>
+</div>
+
+<!-- Snake & Ladders -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="snake_ladders"
+    style="--glow:rgba(16,185,129,.15);--border-glow:#10b981" onclick="selectSport(this,'snake_ladders')">
+    <div class="check bg-emerald-500 text-white text-xs">✓</div>
+    <div class="icon">🪜</div>
+    <h3 class="text-white font-bold text-sm mt-2">Snake & Ladders</h3>
+    <div class="features mt-2 space-y-1">
+        <span class="text-[10px] text-slate-400 block">Position • Snakes Hit</span>
+        <span class="text-[10px] text-slate-400 block">Ladders Climbed • Dice Rolls</span>
+    </div>
+</div>
+
+<!-- Business / Monopoly -->
+<div class="sport-card p-4 rounded-2xl glass border border-white/10 text-center" data-sport="business"
+    style="--glow:rgba(132,204,22,.15);--border-glow:#84cc16" onclick="selectSport(this,'business')">
+    <div class="check bg-lime-500 text-white text-xs">✓</div>
+    <div class="icon">💰</div>
+    <h3 class="text-white font-bold text-sm mt-2">Business</h3>
+    <div class="features mt-2 space-y-1">
+        <span class="text-[10px] text-slate-400 block">Balance • Properties • Houses</span>
+        <span class="text-[10px] text-slate-400 block">Loans • EMI • Jail • Rent</span>
+        <span class="text-[10px] text-slate-400 block">Bankruptcy • Hotels</span>
+    </div>
+</div>
+
+</div>
+</div>
+
+<!-- Feature Showcase Panel -->
+<div class="feature-showcase mt-6" id="featureShowcase">
+    <div class="p-5 rounded-2xl glass border border-white/10">
+        <div class="flex items-center gap-3 mb-4">
+            <span id="showcaseIcon" class="text-3xl"></span>
+            <div>
+                <h3 id="showcaseTitle" class="text-lg font-display font-bold text-white"></h3>
+                <p id="showcaseDesc" class="text-slate-400 text-xs"></p>
+            </div>
+        </div>
+        <div class="feat-grid" id="showcaseFeatures"></div>
+    </div>
+</div>
+
+<!-- Status -->
+<div class="mt-8 animate-in" style="--delay:3">
+<label class="text-sm font-medium text-slate-300 mb-2 block">Status</label>
+<div class="flex gap-3">
+{% for status in ['upcoming', 'live', 'completed'] %}
+<label class="flex-1 cursor-pointer">
+<input type="radio" name="status" value="{{ status }}" class="hidden peer" {{ 'checked' if status == 'upcoming' }}>
+<div class="text-center py-3 rounded-xl border border-white/10 text-sm font-medium text-slate-400
+peer-checked:border-pink-500/50 peer-checked:text-pink-400 peer-checked:bg-pink-500/10
+transition-all hover:bg-white/5">
+{{ status|capitalize }}
+</div>
+</label>
+{% endfor %}
+</div>
+</div>
+
+<!-- Submit -->
+<div class="mt-8 animate-in" style="--delay:4">
+<button type="submit" id="submitBtn"
+class="btn-primary w-full text-center justify-center opacity-50 pointer-events-none transition-all">
+ Select a Sport First
+</button>
+</div>
+
+</form>
+
+
+
+
+
+<script>
+const sportNames = {
+    cricket: '🏏 Cricket',
+    football: '⚽ Football',
+    basketball: '🏀 Basketball',
+    tennis: '🎾 Tennis',
+    badminton: '🏸 Badminton',
+    table_tennis: '🏓 Table Tennis'
+};
+
+const sportFeatures = {
+cricket: {
+    icon: '🏏', title: 'Cricket', desc:'Full cricket scoring with extras, boundaries & run rate',
+    color:'#22c55e',
+    features:[
+        'Over-by-over score tracking','Wickets fallen per team','No-ball counter','Wide ball counter',
+        'Byes & leg-byes tracking','Boundary count (4s)','Sixes count','Maiden overs tracking',
+        'Dot ball counter','Run rate calculation','Required run rate display','Extras total per team',
+        'Current partnership tracking','Fall of wickets log','Powerplay overs indicator',
+        'DLS method support','Test / ODI / T20 formats','Innings break management'
+    ]
+},
+football: {
+    icon:'⚽', title:'Football', desc:'Complete match stats with cards, corners & possession',
+    color:'#3b82f6',
+    features:[
+        'Goal scorers tracking','Half-time score','Yellow card counter','Red card counter',
+        'Corner kicks count','Offsides counter','Shots on target','Possession percentage',
+        'Free kicks awarded','Penalty kicks','Substitution log','Injury time added',
+        'Goal difference calculation','Assist tracking','Saves by goalkeeper',
+        'Pass accuracy stats','Formation display'
+    ]
+},
+basketball: {
+    icon:'🏀', title:'Basketball', desc:'Quarter-by-quarter scoring with advanced player stats',
+    color:'#f97316',
+    features:[
+        'Q1 / Q2 / Q3 / Q4 scores','Overtime period scoring','2-point field goals','3-point field goals',
+        'Free throw tracking','Rebound counter (off/def)','Assists tracking','Steals counter',
+        'Blocks counter','Turnover tracking','Personal foul counter (5 = out)','Team foul bonus indicator',
+        'Fast break points','Points in the paint','Bench scoring','Shot clock violations'
+    ]
+},
+tennis: {
+    icon:'🎾', title:'Tennis', desc:'Set-by-set scoring with service stats & tiebreaks',
+    color:'#eab308',
+    features:[
+        'Set 1-5 individual scores','Game point tracking (15-30-40)','Tiebreak scoring',
+        'Ace counter','Double fault counter','Service games won','Break points won/saved',
+        'First serve percentage','Winners count','Unforced errors','Net points won',
+        'Best of 3 / 5 set formats','Deuce & advantage tracking','Match duration timer'
+    ]
+},
+badminton: {
+    icon:'🏸', title:'Badminton', desc:'Rally-point scoring for singles & doubles',
+    color:'#a855f7',
+    features:[
+        'Game 1 / Game 2 / Game 3 scores','21-point rally scoring','Smash count',
+        'Net point winners','Service fault counter','Deuce handling (20-20+)',
+        'Service side indicator','Singles & doubles formats','Interval at 11 points',
+        'Challenge system tracking','Match duration'
+    ]
+},
+table_tennis: {
+    icon:'🏓', title:'Table Tennis', desc:'Fast-paced set scoring with serve rotation',
+    color:'#14b8a6',
+    features:[
+        'Game 1-7 individual scores','11-point games','2-serve rotation tracking',
+        'Deuce from 10-10','Best of 5 / 7 formats','Expedite system timer',
+        'Service side indicator','Timeout tracking','Edge ball calls',
+        'Match duration display'
+    ]
+},
+volleyball: {
+    icon:'🏐', title:'Volleyball', desc:'Set-based scoring with attack & block stats',
+    color:'#ef4444',
+    features:[
+        'Set 1-5 individual scores','25-point sets with deciding 15-point set',
+        'Spike/attack kill count','Block counter','Ace serve counter',
+        'Service error tracking','Rotation tracking','Timeout log (2 per set)',
+        'Substitution counter (6 per set)','Libero tracking',
+        'Best of 3 / 5 set formats','Deuce from 24-24 / 14-14'
+    ]
+},
+chess: {
+    icon:'♟', title:'Chess', desc:'Win/draw/loss with ELO, time & opening tracking',
+    color:'#94a3b8',
+    features:[
+        'Win / Draw / Loss result','Checkmate detection','Resignation tracking',
+        'Stalemate detection','Timeout on clock','Draw by agreement',
+        'Threefold repetition draw','50-move rule draw','Total moves count',
+        'Time used per player','Opening name logging','ELO rating calculation',
+        'Swiss pairing system','Blitz / Rapid / Classical formats'
+    ]
+},
+carrom: {
+    icon:'⚪', title:'Carrom', desc:'Coin pocketing with queen & foul tracking',
+    color:'#d97706',
+    features:[
+        'Black coin count per player','White coin count per player','Queen pocket tracking',
+        'Queen cover requirement','Foul & penalty detection','Board clearance bonus',
+        'Due tracking (coins owed)','Singles & doubles modes','Break shot tracking',
+        'Points per board calculation'
+    ]
+},
+ludo: {
+    icon:'🎲', title:'Ludo', desc:'Full dice game tracking with kills & token positions',
+    color:'#f472b6',
+    features:[
+        'Tokens home per player (0-4)','Kill/capture counter','Dice roll counter',
+        'Sixes rolled count','Triple-six penalty detection','Safe zone position tracking',
+        'Star position tracking','Token-wise position logging','Home run bonus',
+        '2 / 3 / 4 player modes','Double turn on six','Opening token from six'
+    ]
+},
+snake_ladders: {
+    icon:'🪜', title:'Snake & Ladders', desc:'Position tracking with snake/ladder statistics',
+    color:'#10b981',
+    features:[
+        '100-square board position','Snakes hit per player','Ladders climbed per player',
+        'Total dice rolls taken','Longest snake encountered','Longest ladder climbed',
+        'Minimum moves tracker','Consecutive snake hits','Near-win miss counter',
+        'Custom board layout support','Exact-landing rule toggle'
+    ]
+},
+business: {
+    color:'#84cc16',
+    features:[
+        'Player cash balance','Net worth calculation','Properties owned count',
+        'Houses built tracker','Hotels built tracker','Loans taken from bank',
+        'Loans repaid tracker','Interest/EMI paid','Rent collected from others',
+        'Rent paid to others','Jail turns spent','Bail payment tracking',
+        'Bankruptcy declaration','GO salary collection','Chance card tracking',
+        'Community Chest cards','Property auction system','Trade/deal log',
+        'Mortgage tracking','Utility ownership'
+    ]
+}
+};
+
+function selectSport(el, sport){
+    document.querySelectorAll('.sport-card').forEach(c=>c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('sportInput').value=sport;
+
+    const badge=document.getElementById('selectedSportBadge');
+    badge.classList.remove('hidden');
+
+    const info=sportNames[sport]||sport;
+    document.getElementById('badgeIcon').textContent=info.split(' ')[0];
+    document.getElementById('badgeName').textContent=info.split(' ').slice(1).join(' ');
+
+    const btn=document.getElementById('submitBtn');
+    btn.classList.remove('opacity-50','pointer-events-none');
+    btn.innerHTML='🏆 Create '+info.split(' ').slice(1).join(' ')+' Tournament';
+
+    // Show feature showcase
+    const sf = sportFeatures[sport];
+    if(sf){
+        const showcase = document.getElementById('featureShowcase');
+        document.getElementById('showcaseIcon').textContent = sf.icon;
+        document.getElementById('showcaseTitle').textContent = sf.title + ' Features';
+        document.getElementById('showcaseDesc').textContent = sf.desc;
+
+        const grid = document.getElementById('showcaseFeatures');
+        grid.innerHTML = '';
+
+        sf.features.forEach((f, i) => {
+            const chip = document.createElement('div');
+            chip.className = 'feat-chip feat-item';
+            chip.style.transitionDelay = (i * 0.04) + 's';
+            chip.innerHTML = '<div class="dot" style="background:'+sf.color+'"></div>' + f;
+            grid.appendChild(chip);
+        });
+
+        showcase.classList.add('show');
+
+        // Trigger staggered animation
+        requestAnimationFrame(() => {
+            grid.querySelectorAll('.feat-item').forEach(el => el.style.opacity = '1');
+        });
+    }
+}
+
+function clearSport(){
+    document.querySelectorAll('.sport-card').forEach(c=>c.classList.remove('selected'));
+    document.getElementById('sportInput').value='';
+    document.getElementById('selectedSportBadge').classList.add('hidden');
+    document.getElementById('featureShowcase').classList.remove('show');
+
+    const btn=document.getElementById('submitBtn');
+    btn.classList.add('opacity-50','pointer-events-none');
+    btn.innerHTML='🏆 Select a Sport First';
+}
+
+document.getElementById('createForm').addEventListener('submit',function(e){
+    if(!document.getElementById('sportInput').value){
+        e.preventDefault();
+        showToast('Please select a sport first!','error');
+    }
+});
+</script>
+{% endblock %}

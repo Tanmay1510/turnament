@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Bracket - Tournament Manager{% endblock %}
+
+{% block body %}
+{% include "navbar.html" %}
+
+<!-- Background Effect -->
+<div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+  <div class="absolute w-96 h-96 top-1/3 -left-48 bg-pink-500/5 rounded-full blur-3xl anim-float"></div>
+</div>
+
+<main class="relative z-10 pt-20 pb-12 px-4 max-w-7xl mx-auto">
+
+  <!-- Heading -->
+  <div class="animate-in">
+    <h1 class="text-3xl font-display font-bold flex items-center gap-3">
+      📊 
+      <span class="bg-gradient-to-r from-pink-400 via-fuchsia-400 to-pink-400 bg-clip-text text-transparent">
+        BRACKET
+      </span>
+    </h1>
+  </div>
+
+  <!-- Tournament Selector -->
+  {% if tournaments %}
+  <div class="flex gap-2 flex-wrap mt-6 animate-in" style="--delay:1">
+    {% for t in tournaments %}
+      <a href="/bracket?tournament_id={{ t.id }}"
+         class="px-4 py-2 rounded-xl text-sm font-medium transition-all hover-lift
+         {{ 'bg-gradient-to-r from-pink-500/15 to-fuchsia-500/15 text-white border border-fuchsia-500/30'
+         if selected_tournament and selected_tournament.id == t.id
+         else 'glass glass-hover text-slate-400' }}">
+        {{ t.name }}
+      </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- No Data -->
+  {% if not group_matches and not knockout_matches %}
+  <div class="text-center py-20 glass rounded-2xl mt-8 animate-in scale" style="--delay:2">
+    <div class="text-5xl mb-4">📭</div>
+    <p class="text-slate-400 text-lg">No bracket data yet</p>
+    <p class="text-slate-500 text-sm mt-2">Generate a schedule from admin panel</p>
+  </div>
+  {% else %}
+
+  <div class="space-y-8 mt-8">
+
+    <!-- GROUP STAGE -->
+    {% if group_matches %}
+    <div>
+      <h2 class="text-lg font-display font-bold text-white mb-4 flex items-center gap-2 animate-in" style="--delay:2">
+        <span class="w-2 h-2 rounded-full bg-pink-400"></span>
+        Group Stage
+      </h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {% for m in group_matches %}
+        <div class="p-4 rounded-xl glass glass-hover animate-in"
+             style="--delay:{{ 3 + loop.index0 }}">
+
+          <!-- Team 1 -->
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold border"
+                   style="background:{{ m.team1_color }}20; border-color:{{ m.team1_color }}">
+                {{ m.team1_short }}
+              </div>
+              <span class="{{ 'text-emerald-400' if m.winner_id == m.team1_id else 'text-white' }}">
+                {{ m.team1_name }}
+              </span>
+            </div>
+
+            <span class="font-display font-bold">{{ m.score1 }}</span>
+          </div>
+
+          <!-- Team 2 -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold border"
+                   style="background:{{ m.team2_color }}20; border-color:{{ m.team2_color }}">
+                {{ m.team2_short }}
+              </div>
+              <span class="{{ 'text-emerald-400' if m.winner_id == m.team2_id else 'text-white' }}">
+                {{ m.team2_name }}
+              </span>
+            </div>
+
+            <span class="font-display font-bold">{{ m.score2 }}</span>
+          </div>
+
+          <!-- Status -->
+          <div class="text-center mt-2">
+            <span class="text-xs px-2 py-1 rounded-full
+              {% if m.status == 'completed' %}
+                text-emerald-400 bg-emerald-500/10
+              {% elif m.status == 'live' %}
+                text-red-400 bg-red-500/10
+              {% else %}
+                text-slate-400 bg-slate-700/50
+              {% endif %}">
+              {{ m.status }}
+            </span>
+          </div>
+
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- KNOCKOUT STAGE -->
+    {% if knockout_matches %}
+    <div>
+      <h2 class="text-lg font-display font-bold text-white mb-4 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-fuchsia-400"></span>
+        Knockout Stage
+      </h2>
+
+      <div class="flex flex-col items-center gap-4">
+        {% for m in knockout_matches %}
+        <div class="w-full max-w-md p-5 rounded-2xl card-gradient glass neon-border animate-in"
+             style="--delay:{{ loop.index0 }}">
+
+          <div class="text-center mb-2">
+            <span class="text-xs text-fuchsia-400 uppercase tracking-wider">
+              {{ m.match_type }}
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between">
+
+            <!-- Team 1 -->
+            <div class="text-center flex-1">
+              <div class="w-12 h-12 mx-auto rounded-xl flex items-center justify-center text-sm font-bold border"
+                   style="background:{{ m.team1_color }}20; border-color:{{ m.team1_color }}">
+                {{ m.team1_short }}
+              </div>
+              <p class="text-sm mt-1">{{ m.team1_name }}</p>
+            </div>
+
+            <!-- Score -->
+            <div class="px-6 font-display font-bold text-xl">
+              {{ m.score1 }} - {{ m.score2 }}
+            </div>
+
+            <!-- Team 2 -->
+            <div class="text-center flex-1">
+              <div class="w-12 h-12 mx-auto rounded-xl flex items-center justify-center text-sm font-bold border"
+                   style="background:{{ m.team2_color }}20; border-color:{{ m.team2_color }}">
+                {{ m.team2_short }}
+              </div>
+              <p class="text-sm mt-1">{{ m.team2_name }}</p>
+            </div>
+
+          </div>
+
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
+</main>
+
+{% endblock %}

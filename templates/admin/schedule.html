@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Schedule - Admin{% endblock %}
+
+{% block body %}
+{% set active_admin = 'schedule' %}
+{% include "admin_sidebar.html" %}
+
+<main class="admin-main">
+<div class="px-6 py-8 max-w-5xl mx-auto">
+
+<h1 class="text-3xl font-display font-bold gradient-text animate-in anim-text-glow" style="--delay:0">
+GENERATE SCHEDULE
+</h1>
+
+<!-- Tournament Selector -->
+{% if tournaments %}
+<div class="flex gap-2 flex-wrap mt-4 animate-in" style="--delay:1">
+{% for t in tournaments %}
+<a href="/admin/schedule?tournament_id={{ t.id }}"
+class="px-4 py-2 rounded-xl text-sm font-medium transition-all hover-lift
+{{ 'bg-gradient-to-r from-pink-500/15 to-emerald-500/15 text-white neon-border'
+if selected_tournament and selected_tournament.id == t.id
+else 'glass glass-hover text-slate-400' }}">
+{{ t.name }}
+</a>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if selected_tournament %}
+{% set is_board_game = selected_tournament.sport in ['business','ludo','snake_ladders'] %}
+
+<!-- Generate Section -->
+<div class="mt-8 p-6 rounded-2xl card-gradient glass neon-border animate-in" style="--delay:2">
+<div class="flex items-center justify-between">
+
+<div>
+{% if is_board_game %}
+<h3 class="font-display font-bold text-white">Game Rounds</h3>
+<p class="text-slate-400 text-sm mt-1">
+Generate game rounds — all players play together each round
+</p>
+{% else %}
+<h3 class="font-display font-bold text-white">Round-Robin Schedule</h3>
+<p class="text-slate-400 text-sm mt-1">
+Generate all group-stage matches (every team plays every other team once)
+</p>
+{% endif %}
+</div>
+
+{% if is_board_game %}
+<div class="flex items-center gap-3">
+<div>
+<label class="text-xs text-slate-400 block mb-1">Rounds</label>
+<input type="number" id="num-rounds" value="3" min="1" max="20"
+class="w-16 h-9 text-center bg-white/5 border border-white/20 rounded-lg text-white text-sm focus:border-pink-500/50">
+</div>
+
+<button onclick="generateSchedule()" id="gen-btn" class="btn-primary">
+⚡ Generate
+</button>
+</div>
+{% else %}
+<button onclick="generateSchedule()" id="gen-btn" class="btn-primary">
+⚡ Generate
+</button>
+{% endif %}
+
+</div>
+</div>
+
+<!-- Matches -->
+{% if matches %}
+<div class="mt-8">
+
+<h2 class="text-lg font-display font-bold text-white mb-4 flex items-center gap-2 animate-in" style="--delay:3">
+{% if is_board_game %}
+🎮 Game Rounds ({{ matches|length }})
+{% else %}
+📅 Scheduled Matches ({{ matches|length }})
+{% endif %}
+</h2>
+
+<div class="space-y-2">
+
+{% for m in matches %}
+<div class="p-4 rounded-xl glass glass-hover neon-border hover-x animate-in from-left"
+style="--delay:{{ 4 + loop.index0 }}">
+
+{% if is_board_game %}
+<!-- Board Game Round -->
+<div class="flex items-center justify-between">
+
+<div class="flex items-center gap-4 flex-1">
+<span class="text-slate-500 text-xs w-8">{{ loop.index }}</span>
+<span class="text-white font-semibold">Round {{ loop.index }}</span>
+
+<div class="flex items-center gap-2 flex-wrap">
+{% for player in all_teams %}
+<div class="flex items-center gap-1 px-2 py-1 rounded-lg border"
+style="background:{{ player.color }}10;border-color:{{ player.color }}30">
+
+<div class="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold border"
+style="background:{{ player.color }}20;border-color:{{ player.color }};color:{{ player.color }}">
+{{ player.short_name }}
+</div>
+
+<span class="text-white text-xs">{{ player.name }}</span>
+</div>
+{% endfor %}
+</div>
+</div>
+
+<div class="flex items-center gap-3">
+<span class="text-xs px-2 py-0.5 rounded-full uppercase
+{% if m.status == 'completed' %}text-emerald-400 bg-emerald-500/10
+{% elif m.status == 'live' %}text-red-400 bg-red-500/10
+{% else %}text-slate-500 bg-slate-800{% endif %}">
+{{ m.status }}
+</span>
+</div>
+
+</div>
+
+{% else %}
+<!-- Normal Match -->
+<div class="flex items-center justify-between">
+
+<div class="flex items-center gap-4 flex-1">
+<span class="text-slate-500 text-xs w-8">{{ loop.index }}</span>
+
+<div class="flex items-center gap-2">
+
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold border"
+style="background:{{ m.team1_color }}20;border-color:{{ m.team1_color }}">
+{{ m.team1_short }}
+</div>
+<span class="text-white text-sm">{{ m.team1_name }}</span>
+</div>
+
+<span class="text-slate-500 text-xs">VS</span>
+
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold border"
+style="background:{{ m.team2_color }}20;border-color:{{ m.team2_color }}">
+{{ m.team2_short }}
+</div>
+<span class="text-white text-sm">{{ m.team2_name }}</span>
+</div>
+
+</div>
+</div>
+
+<div class="flex items-center gap-3">
+
+<span class="text-xs px-2 py-0.5 rounded-full uppercase
+{% if m.status == 'completed' %}text-emerald-400 bg-emerald-500/10
+{% elif m.status == 'live' %}text-red-400 bg-red-500/10
+{% else %}text-slate-500 bg-slate-800{% endif %}">
+{{ m.status }}
+</span>
+
+<span class="font-display text-white text-sm">
+{{ m.score1 }} - {{ m.score2 }}
+</span>
+
+</div>
+
+</div>
+{% endif %}
+
+</div>
+{% endfor %}
+
+</div>
+</div>
+
+{% else %}
+<div class="text-center py-12 glass rounded-2xl mt-8 animate-in scale" style="--delay:3">
+<div class="text-3xl mb-3">📭</div>
+<p class="text-slate-400">
+{% if is_board_game %}No rounds generated yet
+{% else %}No matches generated yet{% endif %}
+</p>
+<p class="text-slate-500 text-sm mt-1">
+Click Generate to create schedule
+</p>
+</div>
+{% endif %}
+
+{% else %}
+<div class="text-center py-20 glass rounded-2xl mt-8 animate-in scale" style="--delay:2">
+<div class="text-5xl mb-4">📋</div>
+<p class="text-slate-400">Select a tournament to manage schedule</p>
+</div>
+{% endif %}
+
+</div>
+</main>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+
+async function generateSchedule() {
+
+const btn = document.getElementById('gen-btn');
+
+btn.disabled = true;
+btn.innerHTML = '⏳ Generating...';
+btn.style.animation = 'pulseGlow 0.5s ease infinite';
+
+const payload = {
+tournament_id: {{ selected_tournament.id if selected_tournament else 0 }}
+};
+
+const roundsInput = document.getElementById('num-rounds');
+if (roundsInput) payload.rounds = parseInt(roundsInput.value) || 3;
+
+const res = await apiCall('/api/matches/generate', 'POST', payload);
+
+if (res) {
+showToast('Schedule generated! 🎉', 'success');
+confettiBurst(window.innerWidth / 2, window.innerHeight / 2);
+setTimeout(() => location.reload(), 1200);
+} else {
+btn.disabled = false;
+btn.innerHTML = '⚡ Generate';
+}
+
+}
+
+</script>
+{% endblock %}

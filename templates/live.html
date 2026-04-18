@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}Live - Tournament Manager{% endblock %}
+{% block body %}
+{% include "navbar.html" %}
+
+<style>
+/* Score ring animation */
+.score-ring {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.score-ring::before {
+  content: ""; position: absolute; inset: -12px;
+  border-radius: 50%; border: 2px solid rgba(244,114,182,0.15);
+  animation: pulseRing 3s ease-out infinite;
+}
+.score-ring::after {
+  content: ""; position: absolute; inset: -6px;
+  border-radius: 50%; border: 1px solid rgba(232,121,249,0.1);
+  animation: pulseRing 3s ease-out infinite 1.5s;
+}
+@keyframes pulseRing {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* Score change burst */
+@keyframes scoreBurst {
+  0% { transform: scale(1); text-shadow: 0 0 0 transparent; }
+  25% { transform: scale(1.5); text-shadow: 0 0 30px rgba(244,114,182,0.8); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); text-shadow: 0 0 0 transparent; }
+}
+.score-burst { animation: scoreBurst 0.6s cubic-bezier(0.23,1,0.32,1); }
+
+/* Live pulse bar */
+@keyframes livePulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+.live-pulse-bar {
+  height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #ef4444, transparent);
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+/* Match card slide-in */
+.match-slide {
+  opacity: 0; transform: translateX(30px);
+  transition: all 0.5s cubic-bezier(0.23,1,0.32,1);
+}
+.match-slide.show { opacity: 1; transform: translateX(0); }
+</style>
+
+<div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+  <div class="parallax-orb absolute w-96 h-96 -top-48 -right-48 bg-red-500/5 rounded-full blur-3xl anim-morph"></div>
+  <div class="parallax-orb absolute w-96 h-96 bottom-0 -left-48 bg-pink-500/5 rounded-full blur-3xl anim-morph" style="animation-delay:3s"></div>
+  <div class="parallax-orb absolute w-64 h-64 top-1/2 left-1/2 bg-fuchsia-500/3 rounded-full blur-3xl anim-float"></div>
+</div>
+
+<main class="relative z-10 pt-20 pb-12 px-4 max-w-7xl mx-auto">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-8 animate-in" style="--delay:0">
+    <h1 class="text-3xl font-display font-bold flex items-center gap-3">
+      <span class="gradient-text anim-text-glow">LIVE MATCHES</span>
+    </h1>
+    <div class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border text-emerald-400 bg-emerald-500/10 border-emerald-500/30" id="conn-status">
+      <span class="live-dot" style="background:#22c55e"></span> CONNECTED
+    </div>
+  </div>
+
+  {% if not selected and not matches %}
+  <div class="text-center py-20 glass rounded-2xl animate-in scale card-shine" style="--delay:1">
+    <p class="text-slate-400 text-lg">No live matches right now</p>
+    <p class="text-slate-500 text-sm mt-2">Check back when a match starts</p>
+    <div class="mt-6">
+      <a href="/" class="text-pink-400 text-sm hover:underline neon-text-hover">← Back to Home</a>
+    </div>
+  </div>
+  {% else %}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Main Score Display -->
+    <div class="lg:col-span-2">
+      {% if selected %}
+      <div class="relative p-8 md:p-12 rounded-3xl card-gradient glass neon-border overflow-hidden animate-in scale border-glow interactive-card" style="--delay:1">
+
+        <!-- Animated bg effects -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+          <div class="absolute -top-32 -right-32 w-64 h-64 bg-gradient-to-br from-pink-500/5 to-fuchsia-500/5 rounded-full anim-spin-slow"></div>
+          <div class="absolute bottom-20 -left-20 w-48 h-48 bg-gradient-to-tr from-pink-500/3 to-transparent rounded-full anim-morph"></div>
+          {% if selected.status == 'live' %}
+          <div class="absolute inset-0 shimmer-bg"></div>
+          {% endif %}
+        </div>
+
+        <div class="relative">
+
+          <!-- Status -->
+          <div class="text-center mb-6">
+            <span class="inline-flex items-center gap-2 text-xs font-bold tracking-widest uppercase px-5 py-2 rounded-full
+              {% if selected.status == 'live' %}
+              bg-red-500/10 text-red-400 border border-red-500/30
+              {% else %}
+              bg-slate-700 text-slate-300 border border-slate-600
+              {% endif %}">
+              {% if selected.status == 'live' %}<span class="live-dot"></span>{% endif %}
+              {{ selected.status.upper }}
+            </span>
+            {% if selected.status == 'live' %}
+            <div class="live-pulse-bar mt-3 mx-auto w-48"></div>
+            {% endif %}
+          </div>
+
+          <!-- Score Board -->
+          <div class="flex items-center justify-center gap-6 md:gap-12">
+
+            <!-- Team 1 -->
+            <div class="text-center group flex-1">
+              <div class="w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center text-xl md:text-2xl font-bold mx-auto mb-3 border-2 tilt-3d group-hover:scale-110 transition-transform duration-300"
+                   style="background:{{ selected.team1_color }};border-color:{{ selected.team1_color }}">
+                {{ selected.team1_short }}
+              </div>
+              <p class="text-white font-semibold neon-text-hover text-sm md:text-base">{{ selected.team1_name }}</p>
+            </div>
+
+            <!-- Score -->
+            <div class="flex items-center gap-4 md:gap-6">
+              <div class="score-ring">
+                <span class="text-6xl md:text-8xl font-display font-black text-white" id="score1">{{ selected.score1 }}</span>
+              </div>
+
+              <div class="flex flex-col items-center gap-1">
+                <span class="text-slate-500 text-lg md:text-xl font-display">VS</span>
+                <div class="w-8 h-0.5 bg-gradient-bg-animated rounded-full"></div>
+              </div>
+
+              <div class="score-ring">
+                <span class="text-6xl md:text-8xl font-display font-black text-white" id="score2">{{ selected.score2 }}</span>
+              </div>
+            </div>
+
+            <!-- Team 2 -->
+            <div class="text-center group flex-1">
+              <div class="w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center text-xl md:text-2xl font-bold mx-auto mb-3 border-2 tilt-3d group-hover:scale-110 transition-transform duration-300"
+                   style="background:{{ selected.team2_color }};border-color:{{ selected.team2_color }}">
+                {{ selected.team2_short }}
+              </div>
+              <p class="text-white font-semibold neon-text-hover text-sm md:text-base">{{ selected.team2_name }}</p>
+            </div>
+
+          </div>
+
+          <p class="text-slate-500 text-xs md:text-sm mt-4 uppercase tracking-widest font-display">
+            {{ selected.match_type }}
+          </p>
+
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Match List -->
+    <div class="space-y-3">
+      <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 animate-in" style="--delay:2">All Matches</h3>
+
+      {% for m in matches %}
+      <a href="/live/{{ m.id }}" class="block">
+        <div class="p-4 rounded-xl cursor-pointer transition-all duration-300 animate-in from-right interactive-card
+          {{ 'card-gradient glass neon-border' if selected and selected.id == m.id else 'glass glass-hover' }}"
+          style="--delay:{{ 3 + loop.index0 }}">
+
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-white font-medium">{{ m.team1_short }}</span>
+
+            <div class="flex items-center gap-2">
+              <span class="font-display text-sm">{{ m.score1 }}</span>
+              <span class="text-slate-500 font-display text-[10px]">VS</span>
+              <span class="font-display text-sm">{{ m.score2 }}</span>
+            </div>
+
+            <span class="text-white font-medium">{{ m.team2_short }}</span>
+          </div>
+
+          {% if m.status == 'live' %}
+          <div class="live-pulse-bar mt-2"></div>
+          {% endif %}
+
+        </div>
+      </a>
+      {% endfor %}
+
+      {% if not matches %}
+      <p class="text-slate-500 text-sm text-center py-8">No live matches</p>
+      {% endif %}
+    </div>
+
+  </div>
+  {% endif %}
+</main>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if selected %}
+try {
+  const source = new EventSource('/api/score-stream');
+
+  source.onopen = () => {
+    const cs = document.getElementById('conn-status');
+    cs.innerHTML = '<span class="live-dot" style="background:#22c55e"></span> CONNECTED';
+    cs.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
+  };
+
+  source.onerror = () => {
+    const cs = document.getElementById('conn-status');
+    cs.innerHTML = '<span class="live-dot"></span> RECONNECTING...';
+    cs.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border text-red-400 bg-red-500/10 border-red-500/30';
+  };
+
+  source.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.id === {{ selected.id }}) {
+      const s1 = document.getElementById('score1');
+      const s2 = document.getElementById('score2');
+
+      if (s1 && s1.textContent != String(data.score1)) {
+        s1.textContent = data.score1;
+        s1.classList.remove('score-burst');
+        void s1.offsetWidth;
+        s1.classList.add('score-burst');
+        window.confettiBurst && confettiBurst(s1.getBoundingClientRect().left + 30, s1.getBoundingClientRect().top);
+      }
+
+      if (s2 && s2.textContent != String(data.score2)) {
+        s2.textContent = data.score2;
+        s2.classList.remove('score-burst');
+        void s2.offsetWidth;
+        s2.classList.add('score-burst');
+        window.confettiBurst && confettiBurst(s2.getBoundingClientRect().left + 30, s2.getBoundingClientRect().top);
+      }
+    }
+  };
+
+} catch(e) { console.log('SSE not available'); }
+{% endif %}
+</script>
+{% endblock %}

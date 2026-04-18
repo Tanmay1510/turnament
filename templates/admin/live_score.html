@@ -1,0 +1,591 @@
+{% extends "base.html" %}
+{% block title %}Live Score Entry - Admin{% endblock %}
+{% block body %}
+{% set active_admin = 'live_score' %}
+{% include "admin_sidebar.html" %}
+
+<style>
+  .gd-input{width:100%;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:white;font-size:13px;transition:all .3s}
+  .gd-input:focus{border-color:rgba(244,114,182,.5);box-shadow:0 0 12px rgba(244,114,182,.15);outline:none}
+  .gd-label{display:block;font-size:10px;color:rgb(148,163,184);margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+  .sport-panel{overflow:hidden;max-height:0;opacity:0;transition:max-height .6s cubic-bezier(.23,1,.32,1),opacity .4s ease}
+  .sport-panel.open{max-height:2000px;opacity:1}
+  .gd-section{padding:16px;border-radius:12px;background:linear-gradient(135deg,rgba(255,255,255,.02),rgba(244,114,182,.03));border:1px solid rgba(255,255,255,.06);margin-top:4px}
+  .gd-section h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .gd-grid{display:grid;gap:10px}
+  .gd-grid-2{grid-template-columns:1fr 1fr}
+  .gd-grid-3{grid-template-columns:1fr 1fr 1fr}
+  .gd-grid-4{grid-template-columns:1fr 1fr 1fr 1fr}
+  .gd-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.05);color:white;font-size:14px;cursor:pointer;border:none;transition:all .2s}
+  .gd-btn:hover{background:rgba(244,114,182,.2);color:#f472b6}
+  .toggle-gd{cursor:pointer;display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;background:rgba(244,114,182,.08);border:1px solid rgba(244,114,182,.2);color:#f472b6;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;transition:all .3s;margin-top:12px}
+  .toggle-gd:hover{background:rgba(244,114,182,.15);border-color:rgba(244,114,182,.4)}
+  .toggle-gd .arrow{transition:transform .3s;display:inline-block}
+  .toggle-gd.open .arrow{transform:rotate(180deg)}
+  @media(max-width:640px){.gd-grid-3,.gd-grid-4{grid-template-columns:1fr 1fr}.gd-grid-2{grid-template-columns:1fr 1fr}}
+</style>
+
+<main class="admin-main">
+  <div class="px-6 py-8 max-w-5xl mx-auto">
+    <h1 class="text-3xl font-display font-bold gradient-text animate-in anim-text-glow" style="--delay:0">LIVE SCORE ENTRY</h1>
+
+    <!-- Sport Badge -->
+    {% if selected_tournament and selected_tournament.sport %}
+    <div class="mt-3 animate-in" style="--delay:0.5">
+      <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-pink-500/10 border border-pink-500/20 text-pink-400">
+        {{ {'cricket':'🏏','football':'⚽','basketball':'🏀','tennis':'🎾','badminton':'🏸','table_tennis':'🏓','volleyball':'🏐','chess':'♟️','carrom':'🎯','ludo':'🎲','snake_ladders':'🐍','business':'🏦'}.get(selected_tournament.sport, '🏆') }}
+        {{ selected_tournament.sport|replace('_',' ')|title }} Tournament
+      </span>
+    </div>
+    {% endif %}
+
+    <!-- Tournament Selector -->
+    {% if tournaments %}
+    <div class="flex gap-2 flex-wrap mt-4 animate-in" style="--delay:1">
+      {% for t in tournaments %}
+      <a href="/admin/live-score?tournament_id={{ t.id }}"
+         class="px-4 py-2 rounded-xl text-sm font-medium transition-all hover-lift
+                {{ 'bg-gradient-to-r from-red-500/15 to-orange-500/15 text-white border border-red-500/30' if selected_tournament and selected_tournament.id == t.id else 'glass glass-hover text-slate-400' }}">
+        {{ t.name }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if selected_tournament and matches %}
+    {% set sport = selected_tournament.sport or '' %}
+    <div class="space-y-6 mt-8">
+      {% for m in matches %}
+      {% set gd = m.game_data if m.game_data else {} %}
+      <div class="p-6 rounded-2xl card-gradient glass neon-border animate-in frost-hover card-shine" style="--delay:{{ 2 + loop.index0 }}" id="match-card-{{ m.id }}">
+        <!-- Match Header -->
+        <div class="flex items-center justify-between mb-4">
+          {% set is_board = sport in ['business', 'ludo', 'snake_ladders'] %}
+          <span class="text-xs font-medium uppercase tracking-wider text-slate-400">
+            {% if is_board %}🎲 Round {{ loop.index }}{% else %}#{{ loop.index }} – {{ m.match_type }}{% endif %}
+          </span>
+          <div class="flex items-center gap-2">
+            <select onchange="updateScore({{ m.id }})" id="status-{{ m.id }}" class="text-xs px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-white">
+              <option value="upcoming" {{ 'selected' if m.status == 'upcoming' }}>Upcoming</option>
+              <option value="live" {{ 'selected' if m.status == 'live' }}>🔴 Live</option>
+              <option value="completed" {{ 'selected' if m.status == 'completed' }}>✅ Completed</option>
+            </select>
+          </div>
+        </div>
+
+        {% if sport in ['business', 'ludo', 'snake_ladders'] %}
+        <!-- ═══ BOARD GAME: All Players Stats (no VS) ═══ -->
+        <input type="hidden" id="score1-{{ m.id }}" value="{{ m.score1 }}">
+        <input type="hidden" id="score2-{{ m.id }}" value="{{ m.score2 }}">
+        <input type="hidden" id="winner-{{ m.id }}" value="{{ m.winner_id or '' }}">
+
+        <div class="grid grid-cols-1 {{ 'md:grid-cols-2' if all_teams|length <= 4 else 'md:grid-cols-3' }} gap-4">
+          {% for player in all_teams %}
+          {% set pkey = 'p' ~ player.id %}
+          <div class="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold border-2"
+                   style="background:{{ player.color }}15;border-color:{{ player.color }};color:{{ player.color }}">{{ player.short_name }}</div>
+              <span class="text-white font-medium">{{ player.name }}</span>
+              {% if sport == 'business' and gd[pkey ~ '_bankrupt'] == 'yes' %}<span class="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">💀</span>{% endif %}
+            </div>
+
+            {% if sport == 'business' %}
+            <div class="gd-grid gd-grid-2 mb-2">
+              <div><span class="gd-label">💰 Balance</span><input type="number" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_balance" value="{{ gd[pkey ~ '_balance']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">📊 Net Worth</span><input type="number" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_networth" value="{{ gd[pkey ~ '_networth']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-3 mb-2">
+              <div><span class="gd-label">🏘️ Properties</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_properties" value="{{ gd[pkey ~ '_properties']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">🏠 Houses</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_houses" value="{{ gd[pkey ~ '_houses']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">🏨 Hotels</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_hotels" value="{{ gd[pkey ~ '_hotels']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-2 mb-2">
+              <div><span class="gd-label">🏦 Loans</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_loans" value="{{ gd[pkey ~ '_loans']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">✅ Repaid</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_repaid" value="{{ gd[pkey ~ '_repaid']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-2 mb-2">
+              <div><span class="gd-label">💸 Rent In</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_rent_in" value="{{ gd[pkey ~ '_rent_in']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">💸 Rent Out</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_rent_out" value="{{ gd[pkey ~ '_rent_out']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-2">
+              <div><span class="gd-label">⛓️ Jail</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_jail" value="{{ gd[pkey ~ '_jail']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">💀 Bankrupt?</span>
+                <select class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_bankrupt" onchange="updateScore({{ m.id }})">
+                  <option value="no" {{ 'selected' if gd[pkey ~ '_bankrupt'] != 'yes' }}>No</option>
+                  <option value="yes" {{ 'selected' if gd[pkey ~ '_bankrupt'] == 'yes' }}>Yes 💀</option>
+                </select>
+              </div>
+            </div>
+
+            {% elif sport == 'ludo' %}
+            <div class="gd-grid gd-grid-2 mb-2">
+              <div><span class="gd-label">🏠 Tokens Home</span><input type="number" min="0" max="4" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_home" value="{{ gd[pkey ~ '_home']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">⚔️ Kills</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_kills" value="{{ gd[pkey ~ '_kills']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-2">
+              <div><span class="gd-label">🎲 Dice Rolls</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_rolls" value="{{ gd[pkey ~ '_rolls']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">6️⃣ Sixes</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_sixes" value="{{ gd[pkey ~ '_sixes']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+
+            {% elif sport == 'snake_ladders' %}
+            <div class="gd-grid gd-grid-2 mb-2">
+              <div><span class="gd-label">📍 Position</span><input type="number" min="0" max="100" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_position" value="{{ gd[pkey ~ '_position']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">🎲 Total Rolls</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_rolls" value="{{ gd[pkey ~ '_rolls']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-2">
+              <div><span class="gd-label">🐍 Snakes Hit</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_snakes" value="{{ gd[pkey ~ '_snakes']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">🪜 Ladders</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="{{ pkey }}_ladders" value="{{ gd[pkey ~ '_ladders']|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+
+        {% else %}
+        <!-- Score Editor (for non-business sports) -->
+        <div class="flex items-center justify-center gap-6 md:gap-12">
+          <div class="text-center flex-1">
+            <div class="w-14 h-14 rounded-xl flex items-center justify-center text-lg font-bold mx-auto mb-2 border-2"
+                 style="background:{{ m.team1_color }}15;border-color:{{ m.team1_color }};color:{{ m.team1_color }}">{{ m.team1_short }}</div>
+            <p class="text-white text-sm font-medium mb-3">{{ m.team1_name }}</p>
+            <div class="flex items-center justify-center gap-2">
+              <button onclick="changeScore({{ m.id }},1,-1)" class="gd-btn hover:bg-red-500/20 hover:text-red-400">−</button>
+              <input type="number" id="score1-{{ m.id }}" value="{{ m.score1 }}" min="0" onchange="updateScore({{ m.id }})"
+                     class="w-16 h-10 text-center bg-white/5 border border-white/10 rounded-lg text-white font-display text-2xl font-bold focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/20">
+              <button onclick="changeScore({{ m.id }},1,1)" class="gd-btn hover:bg-emerald-500/20 hover:text-emerald-400">+</button>
+            </div>
+          </div>
+          <span class="text-slate-500 font-display text-lg">VS</span>
+          <div class="text-center flex-1">
+            <div class="w-14 h-14 rounded-xl flex items-center justify-center text-lg font-bold mx-auto mb-2 border-2"
+                 style="background:{{ m.team2_color }}15;border-color:{{ m.team2_color }};color:{{ m.team2_color }}">{{ m.team2_short }}</div>
+            <p class="text-white text-sm font-medium mb-3">{{ m.team2_name }}</p>
+            <div class="flex items-center justify-center gap-2">
+              <button onclick="changeScore({{ m.id }},2,-1)" class="gd-btn hover:bg-red-500/20 hover:text-red-400">−</button>
+              <input type="number" id="score2-{{ m.id }}" value="{{ m.score2 }}" min="0" onchange="updateScore({{ m.id }})"
+                     class="w-16 h-10 text-center bg-white/5 border border-white/10 rounded-lg text-white font-display text-2xl font-bold focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/20">
+              <button onclick="changeScore({{ m.id }},2,1)" class="gd-btn hover:bg-emerald-500/20 hover:text-emerald-400">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Winner -->
+        <div class="mt-4 pt-4 border-t border-white/5">
+          <label class="text-xs text-slate-400 mb-1 block">Winner</label>
+          <select id="winner-{{ m.id }}" onchange="updateScore({{ m.id }})" class="w-full text-sm px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white">
+            <option value="">— No winner —</option>
+            <option value="{{ m.team1_id }}" {{ 'selected' if m.winner_id == m.team1_id }}>{{ m.team1_name }}</option>
+            <option value="{{ m.team2_id }}" {{ 'selected' if m.winner_id == m.team2_id }}>{{ m.team2_name }}</option>
+          </select>
+        </div>
+
+        <!-- ═══ Sport-Specific Toggle ═══ -->
+        <div class="toggle-gd" onclick="toggleGameData(this, {{ m.id }})">
+          <span class="arrow">▼</span> {{ {'cricket':'🏏 Cricket','football':'⚽ Football','basketball':'🏀 Basketball','tennis':'🎾 Tennis','badminton':'🏸 Badminton','table_tennis':'🏓 Table Tennis','volleyball':'🏐 Volleyball','chess':'♟️ Chess','carrom':'🎯 Carrom','ludo':'🎲 Ludo','snake_ladders':'🐍 Snake & Ladders','business':'🏦 Business'}.get(sport, '📊') }} Detailed Stats
+        </div>
+        {% endif %}
+
+        <!-- ═══ CRICKET ═══ -->
+        {% if sport == 'cricket' %}
+        <div class="sport-panel" id="gd-panel-{{ m.id }}">
+          <div class="gd-section mt-3">
+            <h4 class="text-emerald-400">🏏 Batting & Bowling</h4>
+            <div class="gd-grid gd-grid-2 mb-3">
+              <div>
+                <span class="gd-label">{{ m.team1_short }} — Overs</span>
+                <input type="number" step="0.1" class="gd-input" data-match="{{ m.id }}" data-field="t1_overs" value="{{ gd.t1_overs|default('',true) }}" onchange="updateScore({{ m.id }})">
+              </div>
+              <div>
+                <span class="gd-label">{{ m.team2_short }} — Overs</span>
+                <input type="number" step="0.1" class="gd-input" data-match="{{ m.id }}" data-field="t2_overs" value="{{ gd.t2_overs|default('',true) }}" onchange="updateScore({{ m.id }})">
+              </div>
+            </div>
+            <div class="gd-grid gd-grid-2 mb-3">
+              <div>
+                <span class="gd-label">{{ m.team1_short }} — Wickets</span>
+                <input type="number" min="0" max="10" class="gd-input" data-match="{{ m.id }}" data-field="t1_wickets" value="{{ gd.t1_wickets|default('',true) }}" onchange="updateScore({{ m.id }})">
+              </div>
+              <div>
+                <span class="gd-label">{{ m.team2_short }} — Wickets</span>
+                <input type="number" min="0" max="10" class="gd-input" data-match="{{ m.id }}" data-field="t2_wickets" value="{{ gd.t2_wickets|default('',true) }}" onchange="updateScore({{ m.id }})">
+              </div>
+            </div>
+          </div>
+          <div class="gd-section">
+            <h4 class="text-yellow-400">⚡ Extras & Boundaries</h4>
+            <div class="gd-grid gd-grid-4 mb-3">
+              <div><span class="gd-label">{{ m.team1_short }} No Balls</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_noballs" value="{{ gd.t1_noballs|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Wides</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_wides" value="{{ gd.t1_wides|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Byes</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_byes" value="{{ gd.t1_byes|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Leg Byes</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_legbyes" value="{{ gd.t1_legbyes|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-4 mb-3">
+              <div><span class="gd-label">{{ m.team2_short }} No Balls</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_noballs" value="{{ gd.t2_noballs|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Wides</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_wides" value="{{ gd.t2_wides|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Byes</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_byes" value="{{ gd.t2_byes|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Leg Byes</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_legbyes" value="{{ gd.t2_legbyes|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-4">
+              <div><span class="gd-label">{{ m.team1_short }} Fours</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_fours" value="{{ gd.t1_fours|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Sixes</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_sixes" value="{{ gd.t1_sixes|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Fours</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_fours" value="{{ gd.t2_fours|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Sixes</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_sixes" value="{{ gd.t2_sixes|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+          </div>
+          <div class="gd-section">
+            <h4 class="text-cyan-400">📈 Run Rate & Maidens</h4>
+            <div class="gd-grid gd-grid-3">
+              <div><span class="gd-label">{{ m.team1_short }} Run Rate</span><input type="number" step="0.01" class="gd-input" data-match="{{ m.id }}" data-field="t1_runrate" value="{{ gd.t1_runrate|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Run Rate</span><input type="number" step="0.01" class="gd-input" data-match="{{ m.id }}" data-field="t2_runrate" value="{{ gd.t2_runrate|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">Req. Run Rate</span><input type="number" step="0.01" class="gd-input" data-match="{{ m.id }}" data-field="req_runrate" value="{{ gd.req_runrate|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-4 mt-3">
+              <div><span class="gd-label">{{ m.team1_short }} Maidens</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_maidens" value="{{ gd.t1_maidens|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Dots</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_dots" value="{{ gd.t1_dots|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Maidens</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_maidens" value="{{ gd.t2_maidens|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Dots</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_dots" value="{{ gd.t2_dots|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══ FOOTBALL ═══ -->
+        {% if sport == 'football' %}
+        <div class="sport-panel" id="gd-panel-{{ m.id }}">
+          <div class="gd-section mt-3">
+            <h4 class="text-blue-400">⚽ Match Details</h4>
+            <div class="gd-grid gd-grid-2 mb-3">
+              <div><span class="gd-label">{{ m.team1_short }} Half-Time</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_halftime" value="{{ gd.t1_halftime|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Half-Time</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_halftime" value="{{ gd.t2_halftime|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-4 mb-3">
+              <div><span class="gd-label">{{ m.team1_short }} Yellow 🟨</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_yellow" value="{{ gd.t1_yellow|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Red 🟥</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_red" value="{{ gd.t1_red|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Yellow 🟨</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_yellow" value="{{ gd.t2_yellow|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Red 🟥</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_red" value="{{ gd.t2_red|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+          </div>
+          <div class="gd-section">
+            <h4 class="text-sky-400">📊 Advanced Stats</h4>
+            <div class="gd-grid gd-grid-4 mb-3">
+              <div><span class="gd-label">{{ m.team1_short }} Corners</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_corners" value="{{ gd.t1_corners|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Offsides</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_offsides" value="{{ gd.t1_offsides|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Corners</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_corners" value="{{ gd.t2_corners|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Offsides</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_offsides" value="{{ gd.t2_offsides|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-4 mb-3">
+              <div><span class="gd-label">{{ m.team1_short }} Shots on Target</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_shots" value="{{ gd.t1_shots|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Possession %</span><input type="number" min="0" max="100" class="gd-input" data-match="{{ m.id }}" data-field="t1_possession" value="{{ gd.t1_possession|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Shots on Target</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_shots" value="{{ gd.t2_shots|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Possession %</span><input type="number" min="0" max="100" class="gd-input" data-match="{{ m.id }}" data-field="t2_possession" value="{{ gd.t2_possession|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-4">
+              <div><span class="gd-label">{{ m.team1_short }} Free Kicks</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_freekicks" value="{{ gd.t1_freekicks|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Penalties</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_penalties" value="{{ gd.t1_penalties|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Free Kicks</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_freekicks" value="{{ gd.t2_freekicks|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Penalties</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_penalties" value="{{ gd.t2_penalties|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══ BASKETBALL ═══ -->
+        {% if sport == 'basketball' %}
+        <div class="sport-panel" id="gd-panel-{{ m.id }}">
+          <div class="gd-section mt-3">
+            <h4 class="text-orange-400">🏀 Quarter Scores</h4>
+            <div class="gd-grid gd-grid-4 mb-3">
+              <div><span class="gd-label">{{ m.team1_short }} Q1</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_q1" value="{{ gd.t1_q1|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Q2</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_q2" value="{{ gd.t1_q2|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Q3</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_q3" value="{{ gd.t1_q3|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Q4</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_q4" value="{{ gd.t1_q4|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-4 mb-3">
+              <div><span class="gd-label">{{ m.team2_short }} Q1</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_q1" value="{{ gd.t2_q1|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Q2</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_q2" value="{{ gd.t2_q2|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Q3</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_q3" value="{{ gd.t2_q3|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Q4</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_q4" value="{{ gd.t2_q4|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-2">
+              <div><span class="gd-label">{{ m.team1_short }} Overtime</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_ot" value="{{ gd.t1_ot|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Overtime</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_ot" value="{{ gd.t2_ot|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+          </div>
+          <div class="gd-section">
+            <h4 class="text-amber-400">📊 Player Stats</h4>
+            <div class="gd-grid gd-grid-3 mb-3">
+              <div><span class="gd-label">{{ m.team1_short }} 2-Pointers</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_2pt" value="{{ gd.t1_2pt|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} 3-Pointers</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_3pt" value="{{ gd.t1_3pt|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Free Throws</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_ft" value="{{ gd.t1_ft|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-3 mb-3">
+              <div><span class="gd-label">{{ m.team2_short }} 2-Pointers</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_2pt" value="{{ gd.t2_2pt|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} 3-Pointers</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_3pt" value="{{ gd.t2_3pt|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Free Throws</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_ft" value="{{ gd.t2_ft|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-4">
+              <div><span class="gd-label">{{ m.team1_short }} Rebounds</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_rebounds" value="{{ gd.t1_rebounds|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Assists</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_assists" value="{{ gd.t1_assists|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Steals</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_steals" value="{{ gd.t1_steals|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Fouls</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_fouls" value="{{ gd.t1_fouls|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-4 mt-3">
+              <div><span class="gd-label">{{ m.team2_short }} Rebounds</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_rebounds" value="{{ gd.t2_rebounds|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Assists</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_assists" value="{{ gd.t2_assists|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Steals</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_steals" value="{{ gd.t2_steals|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Fouls</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_fouls" value="{{ gd.t2_fouls|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══ TENNIS ═══ -->
+        {% if sport == 'tennis' %}
+        <div class="sport-panel" id="gd-panel-{{ m.id }}">
+          <div class="gd-section mt-3">
+            <h4 class="text-yellow-400">🎾 Set Scores</h4>
+            <div class="gd-grid gd-grid-3 mb-2">
+              {% for s in range(1,6) %}
+              <div class="gd-grid gd-grid-2" style="gap:4px">
+                <div><span class="gd-label">{{ m.team1_short }} Set {{ s }}</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_set{{ s }}" value="{{ gd['t1_set' ~ s]|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+                <div><span class="gd-label">{{ m.team2_short }} Set {{ s }}</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_set{{ s }}" value="{{ gd['t2_set' ~ s]|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="gd-section">
+            <h4 class="text-lime-400">📊 Match Stats</h4>
+            <div class="gd-grid gd-grid-4">
+              <div><span class="gd-label">{{ m.team1_short }} Aces</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_aces" value="{{ gd.t1_aces|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Dbl Faults</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_dblfaults" value="{{ gd.t1_dblfaults|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Aces</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_aces" value="{{ gd.t2_aces|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Dbl Faults</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_dblfaults" value="{{ gd.t2_dblfaults|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-4 mt-3">
+              <div><span class="gd-label">{{ m.team1_short }} Break Pts Won</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_breakpts" value="{{ gd.t1_breakpts|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Svc Games Won</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_svcgames" value="{{ gd.t1_svcgames|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Break Pts Won</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_breakpts" value="{{ gd.t2_breakpts|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Svc Games Won</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_svcgames" value="{{ gd.t2_svcgames|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══ BADMINTON ═══ -->
+        {% if sport == 'badminton' %}
+        <div class="sport-panel" id="gd-panel-{{ m.id }}">
+          <div class="gd-section mt-3">
+            <h4 class="text-purple-400">🏸 Game Scores (Best of 3)</h4>
+            <div class="gd-grid gd-grid-3 mb-3">
+              {% for g in range(1,4) %}
+              <div class="gd-grid gd-grid-2" style="gap:4px">
+                <div><span class="gd-label">{{ m.team1_short }} Game {{ g }}</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_game{{ g }}" value="{{ gd['t1_game' ~ g]|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+                <div><span class="gd-label">{{ m.team2_short }} Game {{ g }}</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_game{{ g }}" value="{{ gd['t2_game' ~ g]|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="gd-section">
+            <h4 class="text-fuchsia-400">📊 Stats</h4>
+            <div class="gd-grid gd-grid-4">
+              <div><span class="gd-label">{{ m.team1_short }} Smashes</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_smashes" value="{{ gd.t1_smashes|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Net Pts</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_netpts" value="{{ gd.t1_netpts|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Smashes</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_smashes" value="{{ gd.t2_smashes|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Net Pts</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_netpts" value="{{ gd.t2_netpts|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-2 mt-3">
+              <div><span class="gd-label">{{ m.team1_short }} Svc Faults</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_svcfaults" value="{{ gd.t1_svcfaults|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Svc Faults</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_svcfaults" value="{{ gd.t2_svcfaults|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══ TABLE TENNIS ═══ -->
+        {% if sport == 'table_tennis' %}
+        <div class="sport-panel" id="gd-panel-{{ m.id }}">
+          <div class="gd-section mt-3">
+            <h4 class="text-teal-400">🏓 Game Scores (Best of 7)</h4>
+            <div class="gd-grid gd-grid-4 mb-2">
+              {% for g in range(1,8) %}
+              <div class="gd-grid gd-grid-2" style="gap:4px">
+                <div><span class="gd-label">{{ m.team1_short }} G{{ g }}</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_g{{ g }}" value="{{ gd['t1_g' ~ g]|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+                <div><span class="gd-label">{{ m.team2_short }} G{{ g }}</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_g{{ g }}" value="{{ gd['t2_g' ~ g]|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══ VOLLEYBALL ═══ -->
+        {% if sport == 'volleyball' %}
+        <div class="sport-panel" id="gd-panel-{{ m.id }}">
+          <div class="gd-section mt-3">
+            <h4 class="text-rose-400">🏐 Set Scores (Best of 5)</h4>
+            <div class="gd-grid gd-grid-3 mb-2">
+              {% for s in range(1,6) %}
+              <div class="gd-grid gd-grid-2" style="gap:4px">
+                <div><span class="gd-label">{{ m.team1_short }} Set {{ s }}</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_set{{ s }}" value="{{ gd['t1_set' ~ s]|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+                <div><span class="gd-label">{{ m.team2_short }} Set {{ s }}</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_set{{ s }}" value="{{ gd['t2_set' ~ s]|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="gd-section">
+            <h4 class="text-red-400">📊 Match Stats</h4>
+            <div class="gd-grid gd-grid-3">
+              <div><span class="gd-label">{{ m.team1_short }} Spikes</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_spikes" value="{{ gd.t1_spikes|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Blocks</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_blocks" value="{{ gd.t1_blocks|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} Aces</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_aces" value="{{ gd.t1_aces|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-3 mt-3">
+              <div><span class="gd-label">{{ m.team2_short }} Spikes</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_spikes" value="{{ gd.t2_spikes|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Blocks</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_blocks" value="{{ gd.t2_blocks|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Aces</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_aces" value="{{ gd.t2_aces|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══ CHESS ═══ -->
+        {% if sport == 'chess' %}
+        <div class="sport-panel" id="gd-panel-{{ m.id }}">
+          <div class="gd-section mt-3">
+            <h4 class="text-slate-300">♟️ Chess Match Details</h4>
+            <div class="gd-grid gd-grid-3 mb-3">
+              <div>
+                <span class="gd-label">Result</span>
+                <select class="gd-input" data-match="{{ m.id }}" data-field="result" onchange="updateScore({{ m.id }})">
+                  <option value="" {{ 'selected' if not gd.result }}>— Select —</option>
+                  <option value="white_win" {{ 'selected' if gd.result == 'white_win' }}>White Wins (1-0)</option>
+                  <option value="black_win" {{ 'selected' if gd.result == 'black_win' }}>Black Wins (0-1)</option>
+                  <option value="draw" {{ 'selected' if gd.result == 'draw' }}>Draw (½-½)</option>
+                </select>
+              </div>
+              <div>
+                <span class="gd-label">End Method</span>
+                <select class="gd-input" data-match="{{ m.id }}" data-field="end_method" onchange="updateScore({{ m.id }})">
+                  <option value="" {{ 'selected' if not gd.end_method }}>— Select —</option>
+                  <option value="checkmate" {{ 'selected' if gd.end_method == 'checkmate' }}>Checkmate</option>
+                  <option value="resign" {{ 'selected' if gd.end_method == 'resign' }}>Resignation</option>
+                  <option value="timeout" {{ 'selected' if gd.end_method == 'timeout' }}>Timeout</option>
+                  <option value="stalemate" {{ 'selected' if gd.end_method == 'stalemate' }}>Stalemate</option>
+                  <option value="agreement" {{ 'selected' if gd.end_method == 'agreement' }}>Draw by Agreement</option>
+                  <option value="repetition" {{ 'selected' if gd.end_method == 'repetition' }}>Threefold Repetition</option>
+                </select>
+              </div>
+              <div><span class="gd-label">Total Moves</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="total_moves" value="{{ gd.total_moves|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-3">
+              <div><span class="gd-label">{{ m.team1_short }} Time Used</span><input type="text" placeholder="mm:ss" class="gd-input" data-match="{{ m.id }}" data-field="t1_time" value="{{ gd.t1_time|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Time Used</span><input type="text" placeholder="mm:ss" class="gd-input" data-match="{{ m.id }}" data-field="t2_time" value="{{ gd.t2_time|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">Opening Name</span><input type="text" class="gd-input" data-match="{{ m.id }}" data-field="opening" value="{{ gd.opening|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══ CARROM ═══ -->
+        {% if sport == 'carrom' %}
+        <div class="sport-panel" id="gd-panel-{{ m.id }}">
+          <div class="gd-section mt-3">
+            <h4 class="text-amber-400">🎯 Carrom Board</h4>
+            <div class="gd-grid gd-grid-4 mb-3">
+              <div><span class="gd-label">{{ m.team1_short }} Black</span><input type="number" min="0" max="9" class="gd-input" data-match="{{ m.id }}" data-field="t1_black" value="{{ gd.t1_black|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team1_short }} White</span><input type="number" min="0" max="9" class="gd-input" data-match="{{ m.id }}" data-field="t1_white" value="{{ gd.t1_white|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Black</span><input type="number" min="0" max="9" class="gd-input" data-match="{{ m.id }}" data-field="t2_black" value="{{ gd.t2_black|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} White</span><input type="number" min="0" max="9" class="gd-input" data-match="{{ m.id }}" data-field="t2_white" value="{{ gd.t2_white|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+            <div class="gd-grid gd-grid-3">
+              <div>
+                <span class="gd-label">Queen Pocketed By</span>
+                <select class="gd-input" data-match="{{ m.id }}" data-field="queen_by" onchange="updateScore({{ m.id }})">
+                  <option value="">— Not yet —</option>
+                  <option value="{{ m.team1_id }}" {{ 'selected' if gd.queen_by|string == m.team1_id|string }}>{{ m.team1_name }}</option>
+                  <option value="{{ m.team2_id }}" {{ 'selected' if gd.queen_by|string == m.team2_id|string }}>{{ m.team2_name }}</option>
+                </select>
+              </div>
+              <div><span class="gd-label">{{ m.team1_short }} Fouls</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t1_fouls" value="{{ gd.t1_fouls|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+              <div><span class="gd-label">{{ m.team2_short }} Fouls</span><input type="number" min="0" class="gd-input" data-match="{{ m.id }}" data-field="t2_fouls" value="{{ gd.t2_fouls|default('',true) }}" onchange="updateScore({{ m.id }})"></div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+      {% endfor %}
+    </div>
+
+    {% elif selected_tournament %}
+    <div class="text-center py-20 glass rounded-2xl mt-8 animate-in scale" style="--delay:2">
+      <div class="text-5xl mb-4">📺</div>
+      <p class="text-slate-400">No matches to score</p>
+      <p class="text-slate-500 text-sm mt-1"><a href="/admin/schedule?tournament_id={{ selected_tournament.id }}" class="text-pink-400 hover:underline">Generate a schedule first →</a></p>
+    </div>
+    {% else %}
+    <div class="text-center py-20 glass rounded-2xl mt-8 animate-in scale" style="--delay:2">
+      <div class="text-5xl mb-4">📋</div>
+      <p class="text-slate-400">Select a tournament to enter scores</p>
+    </div>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleGameData(btn, matchId) {
+    const panel = document.getElementById('gd-panel-' + matchId);
+    if (!panel) return;
+    btn.classList.toggle('open');
+    panel.classList.toggle('open');
+  }
+
+  function changeScore(matchId, team, delta) {
+    const el = document.getElementById('score' + team + '-' + matchId);
+    const val = Math.max(0, parseInt(el.value || 0) + delta);
+    el.value = val;
+    if (typeof animateScore === 'function') animateScore(el);
+    updateScore(matchId);
+  }
+
+  function collectGameData(matchId) {
+    const gd = {};
+    document.querySelectorAll('[data-match="' + matchId + '"][data-field]').forEach(el => {
+      const field = el.dataset.field;
+      const val = el.tagName === 'SELECT' ? el.value : el.value;
+      if (val !== '' && val !== null && val !== undefined) {
+        gd[field] = isNaN(val) || val === '' ? val : Number(val);
+      }
+    });
+    return gd;
+  }
+
+  async function updateScore(matchId) {
+    const s1 = parseInt(document.getElementById('score1-' + matchId).value) || 0;
+    const s2 = parseInt(document.getElementById('score2-' + matchId).value) || 0;
+    const status = document.getElementById('status-' + matchId).value;
+    const winnerId = document.getElementById('winner-' + matchId).value;
+    const gameData = collectGameData(matchId);
+
+    const res = await apiCall('/api/matches/' + matchId + '/score', 'PUT', {
+      score1: s1,
+      score2: s2,
+      status: status,
+      winner_id: winnerId || null,
+      game_data: gameData
+    });
+
+    if (res) {
+      showToast('Score updated!', 'success');
+      const card = document.getElementById('match-card-' + matchId);
+      if (card) {
+        card.style.boxShadow = '0 0 30px rgba(244,114,182,0.3)';
+        setTimeout(() => { card.style.boxShadow = ''; }, 600);
+      }
+    }
+  }
+</script>
+{% endblock %}

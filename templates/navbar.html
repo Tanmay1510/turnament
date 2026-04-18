@@ -1,0 +1,66 @@
+<nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-white/10" style="backdrop-filter:blur(24px)">
+  <div class="max-w-7xl mx-auto px-4">
+    <div class="flex items-center justify-between h-16">
+
+      <!-- Logo -->
+      <a href="/" class="flex items-center gap-3 group">
+        <span class="text-2xl anim-rubber">🏆</span>
+        <span class="font-display text-lg font-bold gradient-text hidden sm:block anim-text-glow">TOURNEY</span>
+      </a>
+
+      <!-- Desktop Nav -->
+      <div class="hidden md:flex items-center gap-1">
+        {% set nav_links = [
+          ('/', 'Home', 'home', '🏠'),
+          ('/live', 'Live', 'live', '📡'),
+          ('/standings', 'Standings', 'standings', '📊'),
+          ('/teams', 'Teams', 'teams', '👥'),
+          ('/bracket', 'Bracket', 'bracket', '🧩')
+        ] %}
+        {% for href, label, key, icon in nav_links %}
+        <a href="{{ href }}"
+           class="relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 neon-text-hover
+           {{ 'text-neon-blue bg-pink-500/10' if active_page == key else 'text-slate-400 hover:text-white hover:bg-white/5' }}">
+          <span>{{ icon }}</span>
+          {{ label }}
+          {% if label == 'Live' %}
+          <span class="live-dot"></span>
+          {% endif %}
+          {% if active_page == key %}
+          <span class="absolute bottom-0 left-3 right-3 h-0.5 rounded-full gradient-bg-animated"></span>
+          {% endif %}
+        </a>
+        {% endfor %}
+      </div>
+
+      <!-- Admin + Mobile -->
+      <div class="flex items-center gap-3">
+        <a href="/admin"
+           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all
+           bg-fuchsia-500/10 border border-fuchsia-500/25 text-fuchsia-400 hover:text-white hover:bg-fuchsia-500/20 anim-pulse-glow">
+          <span class="hidden sm:inline">Admin</span>
+        </a>
+
+        <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors" id="mobile-toggle">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Mobile Menu -->
+  <div id="mobile-menu" class="md:hidden overflow-hidden transition-all duration-300 glass border-t border-white/10" style="max-height: 0;">
+    <div class="px-4 py-3 space-y-1">
+      {% for href, label, key, icon in nav_links %}
+      <a href="{{ href }}"
+         class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all
+         {{ 'text-neon-blue bg-pink-500/10' if active_page == key else 'text-slate-400 hover:text-white hover:bg-white/5' }}">
+        <span>{{ icon }}</span> {{ label }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</nav>

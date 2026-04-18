@@ -1,0 +1,68 @@
+<aside id="admin-sidebar"
+class="fixed left-0 top-0 bottom-0 z-50 flex flex-col
+glass border-r border-white/10 transition-all duration-300"
+style="width:260px; backdrop-filter:blur(24px)">
+
+<!-- Header -->
+<div class="flex items-center gap-3 px-4 h-16 border-b border-white/10">
+<span class="text-xl anim-spin-slow">⚡</span>
+<span class="font-display text-sm font-bold gradient-text sidebar-text anim-text-glow">
+ADMIN PANEL
+</span>
+</div>
+
+<!-- Navigation -->
+<div class="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+
+{% set sidebar_links = [
+('/admin', 'Dashboard', 'dashboard', '🏠'),
+('/admin/tournaments', 'Manage Tournaments', 'manage', '🏆'),
+('/admin/tournament/create', 'Create Tournament', 'create', '➕'),
+('/admin/teams', 'Teams & Players', 'teams', '👥'),
+('/admin/schedule', 'Generate Schedule', 'schedule', '📅'),
+('/admin/live-score', 'Live Score Entry', 'live_score', '📊')
+] %}
+
+{% for href, label, key, icon in sidebar_links %}
+<a href="{{ href }}"
+class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 hover-x group
+{{ 'text-white bg-gradient-to-r from-fuchsia-500/15 to-rose-500/10 border border-fuchsia-500/25'
+if active_admin == key else
+'text-slate-400 hover:text-white hover:bg-white/5' }}">
+
+<span class="text-lg flex-shrink-0">{{ icon }}</span>
+<span class="sidebar-text whitespace-nowrap">{{ label }}</span>
+
+{% if active_admin == key %}
+<span class="absolute left-0 top-2 bottom-2 w-1 rounded-full gradient-bg-animated"></span>
+{% endif %}
+
+</a>
+{% endfor %}
+
+</div>
+
+<!-- Footer -->
+<div class="px-2 py-4 space-y-1 border-t border-white/10">
+
+<a href="/"
+class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+<span>🌐</span>
+<span class="sidebar-text">View Site</span>
+</a>
+
+<a href="/admin/logout"
+class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all">
+<span>🚪</span>
+<span class="sidebar-text">Logout</span>
+</a>
+
+</div>
+
+<!-- Collapse Toggle -->
+<button onclick="toggleSidebar()"
+class="absolute -right-3 top-20 w-6 h-6 rounded-full bg-slate-800 border border-white/20 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-xs">
+⮜
+</button>
+
+</aside>

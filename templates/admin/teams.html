@@ -1,0 +1,329 @@
+{% extends "base.html" %} {% block title %}Teams & Players - Admin{% endblock %}
+{% block body %} {% set active_admin = 'teams' %} {% include
+"admin_sidebar.html" %}
+
+<main class="admin-main">
+  <div class="px-6 py-8 max-w-7xl mx-auto">
+    <h1
+      class="text-3xl font-display font-bold gradient-text animate-in anim-text-glow"
+      style="--delay: 0"
+    >
+      {{ 'PLAYERS' if is_board_game else 'TEAMS & PLAYERS' }}
+    </h1>
+
+    <!-- Tournament Selector -->
+    {% if tournaments %}
+    <div class="flex gap-2 flex-wrap mt-4 animate-in" style="--delay: 1">
+      {% for t in tournaments %}
+      <a
+        href="/admin/teams?tournament_id={{ t.id }}"
+        class="px-4 py-2 rounded-xl text-sm font-medium transition-all hover-lift
+{{ 'bg-gradient-to-r from-pink-500/15 to-fuchsia-500/15 text-white neon-border'
+if selected_tournament and selected_tournament.id == t.id
+else 'glass glass-hover text-slate-400' }}"
+      >
+        {{ t.name }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %} {% if selected_tournament %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+      <!-- Add Team -->
+      <div class="animate-in" style="--delay: 2">
+        <div
+          class="p-6 rounded-2xl card-gradient glass neon-border sticky top-24"
+        >
+          <h3 class="font-display font-bold text-white mb-4">
+            Add {{ 'Player' if is_board_game else 'Team' }}
+          </h3>
+
+          <form id="add-team-form" class="space-y-4">
+            <input
+              type="hidden"
+              name="tournament_id"
+              value="{{ selected_tournament.id }}"
+            />
+
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">
+                {{ 'Player' if is_board_game else 'Team' }} Name
+              </label>
+              <input
+                type="text"
+                name="name"
+                required
+                class="input-field"
+                placeholder="{{ 'e.g. Rahul' if is_board_game else 'e.g. Mumbai Indians' }}"
+              />
+            </div>
+
+            <div>
+              <label class="text-xs text-slate-400 block mb-1"
+                >Short Name</label
+              >
+              <input
+                type="text"
+                name="short_name"
+                required
+                maxlength="4"
+                class="input-field"
+                placeholder="{{ 'e.g. RK' if is_board_game else 'e.g. MI' }}"
+              />
+            </div>
+
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">Color</label>
+              <input
+                type="color"
+                name="color"
+                value="#00d4ff"
+                class="w-full h-10 rounded-lg cursor-pointer bg-transparent border border-white/10"
+              />
+            </div>
+
+            <button type="submit" class="btn-primary w-full">
+              Add {{ 'Player' if is_board_game else 'Team' }}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Teams List -->
+      <div class="lg:col-span-2" id="teams-container">
+        {% if teams %} {% for team in teams %}
+        <div
+          class="mb-4 animate-in"
+          style="--delay:{{ 3 + loop.index0 }}"
+          id="team-{{ team.id }}"
+        >
+          <div
+            class="p-5 rounded-2xl glass glass-hover"
+            style="border:1px solid {{ team.color }}30"
+          >
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold border-2"
+                  style="background:{{ team.color }}15;border-color:{{ team.color }};color:{{ team.color }}"
+                >
+                  {{ team.short_name }}
+                </div>
+
+                <div>
+                  <h4 class="text-white font-semibold">{{ team.name }}</h4>
+                  {% if not is_board_game %}
+                  <p class="text-slate-500 text-xs">
+                    {{ team.players|length if team.players else 0 }} players
+                  </p>
+                  {% endif %}
+                </div>
+              </div>
+
+              <button
+                onclick="deleteTeam({{ team.id }})"
+                class="text-red-400 hover:text-red-300 text-xs px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20"
+              >
+                ✕ Remove
+              </button>
+            </div>
+
+            <!-- Players -->
+            {% if not is_board_game %}
+            <div class="space-y-1 mb-3" id="players-{{ team.id }}">
+              {% if team.players %} {% for p in team.players %}
+              <div
+                class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/5 transition-all"
+                id="player-{{ p.id }}"
+              >
+                <div class="flex items-center gap-3">
+                  <span class="text-slate-500 text-xs w-6"
+                    >{{ p.number or '-' }}</span
+                  >
+                  <span class="text-slate-200 text-sm">{{ p.name }}</span>
+                  <span class="text-slate-500 text-xs">{{ p.role }}</span>
+                </div>
+
+                <button
+                  onclick="deletePlayer({{ p.id }})"
+                  class="text-slate-500 hover:text-red-400 text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+              {% endfor %} {% endif %}
+            </div>
+
+            <!-- Add Player Inline -->
+            <form
+              onsubmit="addPlayer(event, {{ team.id }})"
+              class="flex gap-2 mt-2"
+            >
+              <input
+                type="text"
+                name="name"
+                required
+                placeholder="Player name"
+                class="input-field text-xs flex-1 py-2"
+              />
+
+              <input
+                type="text"
+                name="role"
+                placeholder="Role"
+                class="input-field text-xs w-24 py-2"
+              />
+
+              <input
+                type="number"
+                name="number"
+                placeholder="#"
+                class="input-field text-xs w-16 py-2"
+              />
+
+              <button
+                type="submit"
+                class="px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs hover:bg-emerald-500/20"
+              >
+                +
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %} {% else %}
+        <div
+          class="text-center py-12 glass rounded-2xl animate-in scale"
+          style="--delay: 3"
+        >
+          <div class="text-3xl mb-3">📭</div>
+          <p class="text-slate-400">
+            No {{ 'players' if is_board_game else 'teams' }} yet for this
+            tournament
+          </p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% else %}
+    <div
+      class="text-center py-20 glass rounded-2xl mt-8 animate-in scale"
+      style="--delay: 2"
+    >
+      <div class="text-5xl mb-4">📋</div>
+      <p class="text-slate-400">
+        Select a tournament above to manage {{ 'players' if is_board_game else
+        'teams' }}
+      </p>
+    </div>
+    {% endif %}
+  </div>
+</main>
+
+{% endblock %} {% block scripts %}
+<script>
+  // Local showToast for teams form (inline to ensure availability)
+  function showToast(message, type = "success") {
+    const container = document.getElementById("toast-container");
+    if (!container) {
+      console.warn("Toast container not found");
+      return;
+    }
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `${type === "success" ? "✔" : "✖"} ${message}`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add("fade-out");
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // Wait for apiCall to be available (from main.js) - with longer timeout
+  function initTeamForms() {
+    if (typeof apiCall === "undefined") {
+      // Keep trying for up to 5 seconds
+      setTimeout(initTeamForms, 200);
+      return;
+    }
+
+    console.log("Initializing team forms, apiCall available");
+
+    // Add team
+    const addTeamForm = document.getElementById("add-team-form");
+    if (addTeamForm) {
+      addTeamForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const data = Object.fromEntries(new FormData(form));
+
+        try {
+          const res = await apiCall("/api/teams", "POST", data);
+          if (res) {
+            showToast("Team added!", "success");
+            location.reload();
+          }
+        } catch (err) {
+          showToast("Error: " + err.message, "error");
+        }
+      });
+    }
+
+    // Add player
+    window.addPlayer = async function addPlayer(e, teamId) {
+      e.preventDefault();
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form));
+      data.team_id = teamId;
+
+      try {
+        const res = await apiCall("/api/players", "POST", data);
+        if (res) {
+          showToast("Player added!", "success");
+          location.reload();
+        }
+      } catch (err) {
+        showToast("Error: " + err.message, "error");
+      }
+    };
+
+    // Delete team
+    window.deleteTeam = async function deleteTeam(id) {
+      if (!confirm("Delete this team and all its players?")) return;
+
+      try {
+        const res = await apiCall("/api/teams/" + id, "DELETE");
+        if (res) {
+          document.getElementById("team-" + id)?.remove();
+          showToast("Team deleted", "success");
+        }
+      } catch (err) {
+        showToast("Error: " + err.message, "error");
+      }
+    };
+
+    // Delete player
+    window.deletePlayer = async function deletePlayer(id) {
+      try {
+        const res = await apiCall("/api/players/" + id, "DELETE");
+        if (res) {
+          document.getElementById("player-" + id)?.remove();
+          showToast("Player removed", "success");
+        }
+      } catch (err) {
+        showToast("Error: " + err.message, "error");
+      }
+    };
+  }
+
+  // Start initialization with a small delay to ensure DOM is ready
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(initTeamForms, 500);
+    });
+  } else {
+    setTimeout(initTeamForms, 500);
+  }
+</script>
+{% endblock %}
