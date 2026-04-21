@@ -22,6 +22,15 @@ def add_cors_headers(response):
     response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
     return response
 
+# Initialize database on first request (for Render deployment)
+@app.before_request
+def ensure_db_initialized():
+    db = get_db()
+    try:
+        db.execute("SELECT COUNT(*) FROM tournaments")
+    except sqlite3.OperationalError:
+        init_db()
+
 # SSE (Server-Sent Events) for real-time
 sse_clients = []
 sse_lock = threading.Lock()
