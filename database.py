@@ -2,18 +2,26 @@ import sqlite3
 import os
 from werkzeug.security import generate_password_hash
 
-# Use /tmp for production (Render), current dir for development
+# For Render: use persistent storage or fallback to /tmp
+# For local: use current directory
 if os.environ.get('RENDER'):
-    DB_PATH = '/tmp/tournament.db'
+    # Try to use persistent volume if available, fallback to /tmp
+    persistent_path = os.environ.get('DB_PATH', '/tmp')
+    DB_PATH = os.path.join(persistent_path, 'tournament.db')
 else:
     DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tournament.db')
 
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute('PRAGMA foreign_keys = ON')
-    return conn
+    """Create database connection with retry logic"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute('PRAGMA foreign_keys = ON')
+        return conn
+    except Exception as e:
+        print(f"Error connecting to database at {DB_PATH}: {e}")
+        raise
 
 
 def init_db():

@@ -3,6 +3,7 @@ import json
 import queue
 import threading
 import sqlite3
+import traceback
 from functools import wraps
 
 from flask import (Flask, Response, g, jsonify, redirect, render_template,
@@ -15,6 +16,16 @@ from database import get_connection, init_db
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24).hex()
 
+# Error handler - log full errors
+@app.errorhandler(Exception)
+def handle_error(error):
+    print(f"\n{'='*60}")
+    print(f"ERROR: {error}")
+    print(f"{'='*60}")
+    traceback.print_exc()
+    print(f"{'='*60}\n")
+    return jsonify({'error': str(error)}), 500
+
 @app.after_request
 def add_cors_headers(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
@@ -22,14 +33,25 @@ def add_cors_headers(response):
     response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
     return response
 
-# Initialize database on first request (for Render deployment)
+# Database initialization flag
+_db_initialized = False
+
 @app.before_request
-def ensure_db_initialized():
-    db = get_db()
-    try:
-        db.execute("SELECT COUNT(*) FROM tournaments")
-    except sqlite3.OperationalError:
-        init_db()
+def check_db():
+    global _db_initialized
+    if not _db_initialized:
+        try:
+            db = get_db()
+            db.execute("SELECT COUNT(*) FROM tournaments")
+            _db_initialized = True
+        except sqlite3.OperationalError:
+            try:
+                init_db()
+                _db_initialized = True
+            except Exception as e:
+                print(f"Failed to initialize DB: {e}")
+                traceback.print_exc()
+                _db_initialized = False
 
 # SSE (Server-Sent Events) for real-time
 sse_clients = []
