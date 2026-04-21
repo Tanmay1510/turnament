@@ -2,7 +2,11 @@ import sqlite3
 import os
 from werkzeug.security import generate_password_hash
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tournament.db')
+# Use /tmp for production (Render), current dir for development
+if os.environ.get('RENDER'):
+    DB_PATH = '/tmp/tournament.db'
+else:
+    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tournament.db')
 
 
 def get_connection():
@@ -72,18 +76,22 @@ def init_db():
     """)
 
     # Seed default admin
-    count = conn.execute("SELECT COUNT(*) FROM admin").fetchone()[0]
+    try:
+        count = conn.execute("SELECT COUNT(*) FROM admin").fetchone()[0]
 
-    if count == 0:
-        pw_hash = generate_password_hash('admin123')
-        conn.execute(
-            "INSERT INTO admin (username, password_hash) VALUES (?, ?)",
-            ('admin', pw_hash)
-        )
-        conn.commit()
-        print("Default admin created -> username: admin, password: admin123")
-
-    conn.close()
+        if count == 0:
+            pw_hash = generate_password_hash('admin123')
+            conn.execute(
+                "INSERT INTO admin (username, password_hash) VALUES (?, ?)",
+                ('admin', pw_hash)
+            )
+            conn.commit()
+            print("Default admin created -> username: admin, password: admin123")
+    except sqlite3.IntegrityError:
+        # Admin user already exists
+        pass
+    finally:
+        conn.close()
 
 
 if __name__ == '__main__':
